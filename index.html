@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b7a3d">
   <title>Tem Aqui Gestão</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=0.2.0">
+  <link rel="stylesheet" href="styles.css?v=0.4.0">
 </head>
 <body>
 <div class="app-shell">
@@ -97,7 +97,7 @@
           <h2>FINALIZAR VENDA</h2>
           <div class="checkout-grid">
             <article class="checkout-summary"><h3>RESUMO DA VENDA</h3><div><span>Total dos Itens</span><b id="checkoutSubtotal">R$ 0,00</b></div><div><span>Desconto</span><b id="checkoutDiscount">R$ 0,00</b></div><div><span>Acréscimo</span><b id="checkoutSurcharge">R$ 0,00</b></div><div class="checkout-total"><span>TOTAL</span><b id="checkoutTotal">R$ 0,00</b></div></article>
-            <article class="payment-card"><h3>FORMA DE PAGAMENTO</h3><div class="payment-grid"><button data-payment="dinheiro"><span>💵</span>Dinheiro</button><button data-payment="pix"><span>◆</span>Pix</button><button data-payment="cartao"><span>💳</span>Cartão</button><button data-payment="ficha"><span>🧾</span>Ficha</button></div><p id="paymentHint">Selecione a forma de pagamento para confirmar a venda.</p></article>
+            <article class="payment-card"><h3>FORMA DE PAGAMENTO</h3><div class="payment-grid"><button data-payment="dinheiro"><span>💵</span>Dinheiro</button><button data-payment="pix"><span>◆</span>Pix</button><button data-payment="cartao"><span>💳</span>Cartão</button><button data-payment="ficha"><span>🧾</span>Ficha</button></div><div id="cashChangeBox" class="cash-change-box" hidden><label>Valor recebido (R$)<input id="cashReceivedInput" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><div class="change-result"><span>Troco</span><strong id="cashChangeValue">R$ 0,00</strong></div><small id="cashChangeStatus">Digite quanto o cliente entregou.</small></div><p id="paymentHint">Selecione a forma de pagamento para confirmar a venda.</p></article>
             <article class="credit-card"><h3>DADOS DA FICHA</h3><label>Cliente *<select id="checkoutCustomer"><option value="">Selecione o cliente</option></select></label><label>Vencimento (opcional)<input id="checkoutDueDate" type="date"></label><label>Observação (opcional)<input id="checkoutNote" placeholder="Ex.: Compra no balcão"></label><button id="confirmSaleButton" class="green full">Confirmar Venda</button></article>
           </div>
         </section>
@@ -129,12 +129,36 @@
   <button data-route="pos" class="side-route active"><span>🛒</span>PDV</button><button data-route="customers" class="side-route"><span>♙</span>Clientes</button><button data-route="products" class="side-route"><span>▧</span>Produtos</button><button data-route="reports" class="side-route"><span>▥</span>Relatórios</button><button data-route="settings" class="side-route"><span>⚙</span>Ajustes</button>
 </div>
 
+
+<dialog id="quantityDialog">
+  <form method="dialog" id="quantityForm">
+    <h2 id="quantityProductName">Quantidade do produto</h2>
+    <p id="quantityProductInfo"></p>
+    <input type="hidden" id="quantityProductId">
+    <label>Quantidade
+      <div class="quantity-dialog-input">
+        <input id="quantityValue" inputmode="decimal" autocomplete="off" value="1" required>
+        <span id="quantityUnit">un.</span>
+      </div>
+    </label>
+    <div class="quantity-preview">
+      <span>Total deste item</span>
+      <strong id="quantityItemTotal">R$ 0,00</strong>
+    </div>
+    <small id="quantityStockHint"></small>
+    <div class="dialog-actions">
+      <button value="cancel">Cancelar</button>
+      <button value="default" id="confirmQuantityButton" class="green">Adicionar à venda</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="looseDialog"><form method="dialog" id="looseForm"><h2>Adicionar produto avulso</h2><label>Descrição<input id="looseName" required></label><label>Quantidade<input id="looseQty" type="number" min="0.001" step="0.001" value="1" required></label><label>Unidade<select id="looseUnit"><option value="un.">un.</option><option value="kg">kg</option><option value="g">g</option><option value="L">L</option></select></label><label>Valor unitário<input id="loosePrice" type="number" min="0" step="0.01" required></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="saveLooseButton" class="green">Adicionar</button></div></form></dialog>
 
 <dialog id="customerDialog"><form method="dialog" id="customerForm"><h2>Cliente</h2><input type="hidden" id="customerId"><label>Nome<input id="customerName" required></label><label>WhatsApp<input id="customerWhatsapp" inputmode="tel"></label><label>Limite de crédito<input id="customerLimit" type="number" min="0" step="0.01" value="0"></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="saveCustomerButton" class="green">Salvar</button></div></form></dialog>
 
 <dialog id="paymentDialog"><form method="dialog" id="paymentForm"><h2>Receber pagamento</h2><p id="paymentCustomerName"></p><label>Valor recebido<input id="paymentAmount" type="number" min="0.01" step="0.01" required></label><label>Observação<input id="paymentNote" placeholder="Ex.: Pix recebido"></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="savePaymentButton" class="green">Confirmar pagamento</button></div></form></dialog>
 
-<script src="app.js?v=0.2.0"></script>
+<script src="app.js?v=0.4.0"></script>
 </body>
 </html>

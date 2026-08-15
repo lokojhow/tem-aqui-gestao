@@ -10,6 +10,21 @@
   const todayKey = () => new Date().toISOString().slice(0, 10);
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+  const parseQty = (value) => {
+    const normalized = String(value ?? '').trim().replace(',', '.');
+    const number = Number(normalized);
+    return Number.isFinite(number) ? number : 0;
+  };
+  const isFractionalUnit = (unit) => ['kg','g','L'].includes(String(unit || ''));
+  const qtyStep = (unit) => unit === 'kg' || unit === 'L' ? 0.1 : 1;
+  const formatQty = (value, unit) => {
+    const n = Number(value || 0);
+    return n.toLocaleString('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: isFractionalUnit(unit) ? 3 : 0
+    });
+  };
+
   const demoProducts = [
     ['Picanha Bovina 1kg','7891234567895',37,15,'Carnes Bovina','🥩','kg',28],
     ['Contra Filé 1kg','7891234567896',32,18,'Carnes Bovina','🥩','kg',24],
@@ -123,25 +138,95 @@
     $('productGrid').innerHTML = list.map(p=>`<button class="product-card" data-product-id="${p.id}"><div class="product-visual">${iconForProduct(p)}</div><h3>${esc(p.name)}</h3><strong>${money(p.price)}</strong><small>${Number(p.stock||0).toLocaleString('pt-BR')} ${esc(p.unit||'un.')}</small></button>`).join('') || '<div class="empty-state" style="grid-column:1/-1;min-height:180px">Nenhum produto encontrado.</div>';
   }
   function addProductToCart(product, qty=1){
+    qty = parseQty(qty);
+    if(qty <= 0) return;
+    if((product.unit||'un.') === 'un.') qty = Math.max(1, Math.round(qty));
     const existing = state.cart.find(i=>i.productId===product.id && !i.loose);
-    if(existing) existing.qty = Number(existing.qty)+Number(qty); else state.cart.push({id:uid(),productId:product.id,name:product.name,price:Number(product.price||0),qty:Number(qty),unit:product.unit||'un.',loose:false});
+    const nextQty = Number(existing?.qty || 0) + qty;
+    if(nextQty > Number(product.stock||0)){
+      return alert(`Estoque insuficiente. Disponível: ${formatQty(product.stock, product.unit)} ${product.unit||'un.'}.`);
+    }
+    if(existing) existing.qty = Number(nextQty.toFixed(3));
+    else state.cart.push({id:uid(),productId:product.id,name:product.name,price:Number(product.price||0),qty:Number(qty.toFixed(3)),unit:product.unit||'un.',loose:false});
     renderCart();
+  }
+
+  function openQuantityDialog(product){
+    if(!product) return;
+    $('quantityProductId').value = product.id;
+    $('quantityProductName').textContent = product.name;
+    $('quantityProductInfo').textContent = `${money(product.price)} por ${product.unit||'un.'}`;
+    $('quantityUnit').textContent = product.unit||'un.';
+    $('quantityValue').value = isFractionalUnit(product.unit) ? '1,000' : '1';
+    $('quantityStockHint').textContent = `Estoque disponível: ${formatQty(product.stock, product.unit)} ${product.unit||'un.'}`;
+    $('quantityStockHint').classList.remove('quantity-warning');
+    updateQuantityPreview();
+    $('quantityDialog').showModal();
+    setTimeout(()=>{$('quantityValue').focus();$('quantityValue').select();},50);
+  }
+
+  function updateQuantityPreview(){
+    const product = state.products.find(p=>p.id===$('quantityProductId').value);
+    if(!product) return;
+    const qty = parseQty($('quantityValue').value);
+    $('quantityItemTotal').textContent = money(Number(product.price||0) * Math.max(0, qty));
+    const invalid = qty <= 0 || qty > Number(product.stock||0) || ((product.unit||'un.') === 'un.' && !Number.isInteger(qty));
+    $('quantityStockHint').classList.toggle('quantity-warning', invalid);
+    if(qty <= 0) $('quantityStockHint').textContent = 'Digite uma quantidade maior que zero.';
+    else if((product.unit||'un.') === 'un.' && !Number.isInteger(qty)) $('quantityStockHint').textContent = 'Produtos por unidade precisam usar quantidade inteira.';
+    else if(qty > Number(product.stock||0)) $('quantityStockHint').textContent = `Quantidade maior que o estoque. Disponível: ${formatQty(product.stock, product.unit)} ${product.unit||'un.'}.`;
+    else $('quantityStockHint').textContent = `Estoque disponível: ${formatQty(product.stock, product.unit)} ${product.unit||'un.'}`;
+  }
+
+  function addSelectedQuantity(){
+    const product = state.products.find(p=>p.id===$('quantityProductId').value);
+    if(!product) return false;
+    const qty = parseQty($('quantityValue').value);
+    if(qty <= 0){ alert('Digite uma quantidade maior que zero.'); return false; }
+    if((product.unit||'un.') === 'un.' && !Number.isInteger(qty)){ alert('Para produtos por unidade, use 1, 2, 3...'); return false; }
+    const existing = state.cart.find(i=>i.productId===product.id && !i.loose);
+    if(Number(existing?.qty || 0) + qty > Number(product.stock||0)){
+      alert(`Estoque insuficiente. Disponível: ${formatQty(product.stock, product.unit)} ${product.unit||'un.'}.`);
+      return false;
+    }
+    addProductToCart(product, qty);
+    return true;
   }
   function renderCart(){
     $('cartCount').textContent = String(state.cart.length);
     $('emptyCart').hidden = state.cart.length>0;
-    $('cartRows').innerHTML = state.cart.map((i,index)=>`<tr><td>${esc(i.name)}${i.loose?'<small> (avulso)</small>':''}</td><td><span class="qty-control"><button data-dec="${index}">−</button><span>${Number(i.qty).toLocaleString('pt-BR')}</span><button data-inc="${index}">+</button></span></td><td>${money(i.price)}</td><td>${money(i.price*i.qty)}</td><td><button class="remove-item" data-remove="${index}">⌫</button></td></tr>`).join('');
+    $('cartRows').innerHTML = state.cart.map((i,index)=>`<tr><td>${esc(i.name)}${i.loose?'<small> (avulso)</small>':''}</td><td><span class="qty-control"><button data-dec="${index}" aria-label="Diminuir">−</button><input class="qty-input" data-qty-input="${index}" inputmode="${isFractionalUnit(i.unit)?'decimal':'numeric'}" value="${formatQty(i.qty,i.unit)}"><span class="qty-unit">${esc(i.unit||'un.')}</span><button data-inc="${index}" aria-label="Aumentar">+</button></span></td><td>${money(i.price)}<small style="display:block;color:#7b858a">/${esc(i.unit||'un.')}</small></td><td>${money(i.price*i.qty)}</td><td><button class="remove-item" data-remove="${index}">⌫</button></td></tr>`).join('');
     const subtotal=cartSubtotal(), total=cartTotal();
     $('subtotal').textContent = money(subtotal); $('grandTotal').textContent = money(total);
     $('checkoutSubtotal').textContent=money(subtotal); $('checkoutDiscount').textContent=money(state.discount); $('checkoutSurcharge').textContent=money(state.surcharge); $('checkoutTotal').textContent=money(total);
+    updateCashChange();
   }
   function renderCheckoutCustomers(){
     $('checkoutCustomer').innerHTML='<option value="">Selecione o cliente</option>'+state.customers.map(c=>`<option value="${c.id}" ${c.id===state.selectedCustomerId?'selected':''}>${esc(c.name)} — ${money(c.debt||0)}</option>`).join('');
   }
+  function updateCashChange(){
+    const box=$('cashChangeBox');
+    if(!box) return;
+    const isCash=state.payment==='dinheiro';
+    box.hidden=!isCash;
+    if(!isCash) return;
+    const received=Number($('cashReceivedInput').value||0);
+    const total=cartTotal();
+    const change=Math.max(0,received-total);
+    $('cashChangeValue').textContent=money(change);
+    const enough=received>=total && total>0;
+    box.classList.toggle('invalid',received>0 && !enough);
+    $('cashChangeStatus').textContent = received<=0
+      ? 'Digite quanto o cliente entregou.'
+      : enough
+        ? `Recebido ${money(received)} · troco ${money(change)}`
+        : `Faltam ${money(total-received)} para completar o pagamento.`;
+  }
+
   function clearSale(confirmFirst=true){
     if(confirmFirst && state.cart.length && !confirm('Limpar a venda atual?')) return;
     state.cart=[];state.discount=0;state.surcharge=0;state.payment='';state.selectedCustomerId='';state.saleStartedAt=new Date();state.saleId=nextSaleId();
-    $('discountInput').value='0';$('surchargeInput').value='0';$$('[data-payment]').forEach(b=>b.classList.remove('active'));$('paymentHint').textContent='Selecione a forma de pagamento para confirmar a venda.';renderPos();
+    $('discountInput').value='0';$('surchargeInput').value='0';$$('[data-payment]').forEach(b=>b.classList.remove('active'));$('paymentHint').textContent='Selecione a forma de pagamento para confirmar a venda.';if($('cashReceivedInput'))$('cashReceivedInput').value='';if($('cashChangeBox'))$('cashChangeBox').hidden=true;renderPos();
   }
   function saveOpenSale(){
     if(!state.cart.length) return alert('Adicione itens antes de salvar a venda.');
@@ -149,11 +234,28 @@
   }
   function choosePayment(payment){
     state.payment=payment;$$('[data-payment]').forEach(b=>b.classList.toggle('active',b.dataset.payment===payment));
-    $('paymentHint').textContent = payment==='ficha' ? 'Ao selecionar Ficha, a venda será lançada na conta do cliente.' : `Pagamento selecionado: ${payment}.`;
+    $('paymentHint').textContent = payment==='ficha' ? 'Ao selecionar Ficha, a venda será lançada na conta do cliente.' : payment==='dinheiro' ? 'Informe quanto o cliente entregou para calcular o troco.' : `Pagamento selecionado: ${payment}.`;
+    if(payment!=='dinheiro' && $('cashReceivedInput')) $('cashReceivedInput').value='';
+    updateCashChange();
+    if(payment==='dinheiro') setTimeout(()=>$('cashReceivedInput')?.focus(),50);
   }
   function confirmSale(){
     if(!state.cart.length) return alert('A venda está vazia.');
     if(!state.payment) return alert('Selecione uma forma de pagamento.');
+    let cashReceived=null, cashChange=null;
+    if(state.payment==='dinheiro'){
+      cashReceived=Number($('cashReceivedInput')?.value||0);
+      const total=cartTotal();
+      if(cashReceived<=0) return alert('Informe quanto o cliente entregou em dinheiro.');
+      if(cashReceived<total) return alert(`O valor recebido é menor que o total. Faltam ${money(total-cashReceived)}.`);
+      cashChange=Math.max(0,cashReceived-total);
+    }
+    for(const item of state.cart){
+      if(item.loose || !item.productId) continue;
+      const product=state.products.find(p=>p.id===item.productId);
+      if(!product) return alert(`Produto não encontrado no estoque: ${item.name}.`);
+      if(Number(item.qty||0)>Number(product.stock||0)) return alert(`Estoque insuficiente para ${item.name}. Disponível: ${formatQty(product.stock,product.unit)} ${product.unit||'un.'}.`);
+    }
     let customer=null;
     if(state.payment==='ficha'){
       const cid=$('checkoutCustomer').value; customer=state.customers.find(c=>c.id===cid);
@@ -163,8 +265,8 @@
       customer.debt=Number(customer.debt||0)+total; state.selectedCustomerId=customer.id;
     }
     state.cart.forEach(i=>{if(i.loose)return;const p=state.products.find(p=>p.id===i.productId);if(p)p.stock=Math.max(0,Number(p.stock||0)-Number(i.qty||0));});
-    const sale={id:uid(),saleId:state.saleId,createdAt:new Date().toISOString(),startedAt:state.saleStartedAt.toISOString(),items:structuredClone(state.cart),subtotal:cartSubtotal(),discount:Number(state.discount||0),surcharge:Number(state.surcharge||0),total:cartTotal(),payment:state.payment,customerId:customer?.id||null,dueDate:$('checkoutDueDate').value||null,note:$('checkoutNote').value.trim()};
-    state.sales.push(sale);persist();const total=sale.total;clearSale(false);renderSidebar();alert(`Venda concluída: ${money(total)}`);
+    const sale={id:uid(),saleId:state.saleId,createdAt:new Date().toISOString(),startedAt:state.saleStartedAt.toISOString(),items:structuredClone(state.cart),subtotal:cartSubtotal(),discount:Number(state.discount||0),surcharge:Number(state.surcharge||0),total:cartTotal(),payment:state.payment,cashReceived,cashChange,customerId:customer?.id||null,dueDate:$('checkoutDueDate').value||null,note:$('checkoutNote').value.trim()};
+    state.sales.push(sale);persist();const total=sale.total;const cashMessage=sale.payment==='dinheiro'?`\nRecebido: ${money(sale.cashReceived)}\nTroco: ${money(sale.cashChange)}`:'';clearSale(false);renderSidebar();alert(`Venda concluída: ${money(total)}${cashMessage}`);
   }
 
   function renderCustomers(){
@@ -209,7 +311,7 @@
     $('stockTable').innerHTML=`<table class="simple-table"><thead><tr><th>Produto</th><th>Categoria</th><th>Código</th><th>Estoque</th><th>Custo</th><th>Venda</th></tr></thead><tbody>${state.products.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.category||'Outros')}</td><td>${esc(p.barcode||'-')}</td><td>${Number(p.stock||0).toLocaleString('pt-BR')} ${esc(p.unit||'un.')}</td><td>${money(p.cost||0)}</td><td>${money(p.price||0)}</td></tr>`).join('')}</tbody></table>`;
   }
   function renderHistory(){
-    const rows=[...state.sales].reverse();$('historyTable').innerHTML=`<table class="simple-table"><thead><tr><th>Venda</th><th>Data</th><th>Pagamento</th><th>Itens</th><th>Total</th></tr></thead><tbody>${rows.map(s=>`<tr><td>${esc(s.saleId||s.id)}</td><td>${new Date(s.createdAt).toLocaleString('pt-BR')}</td><td>${esc(s.payment||'-')}</td><td>${s.items?.length||0}</td><td>${money(s.total||0)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhuma venda realizada.</td></tr>'}</tbody></table>`;
+    const rows=[...state.sales].reverse();$('historyTable').innerHTML=`<table class="simple-table"><thead><tr><th>Venda</th><th>Data</th><th>Pagamento</th><th>Itens</th><th>Total</th></tr></thead><tbody>${rows.map(s=>`<tr><td>${esc(s.saleId||s.id)}</td><td>${new Date(s.createdAt).toLocaleString('pt-BR')}</td><td>${esc(s.payment||'-')}${s.payment==='dinheiro'&&Number.isFinite(Number(s.cashReceived))?`<small style="display:block;color:#6b7780">Recebido ${money(s.cashReceived)} · Troco ${money(s.cashChange||0)}</small>`:''}</td><td>${s.items?.length||0}</td><td>${money(s.total||0)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhuma venda realizada.</td></tr>'}</tbody></table>`;
   }
   function renderReports(){
     const sales=salesToday(),total=sales.reduce((a,s)=>a+Number(s.total||0),0),ticket=sales.length?total/sales.length:0,credit=state.customers.reduce((a,c)=>a+Number(c.debt||0),0);
@@ -223,14 +325,43 @@
   $$('.side-route').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.route)));
   $$('.catalog-tabs button').forEach(b=>b.addEventListener('click',()=>{state.catalogFilter=b.dataset.filter;$$('.catalog-tabs button').forEach(x=>x.classList.toggle('active',x===b));renderCatalog();}));
   $('categoryFilter').addEventListener('change',renderCatalog);$('productSearch').addEventListener('input',renderCatalog);
-  $('productSearch').addEventListener('keydown',e=>{if(e.key!=='Enter')return;e.preventDefault();const value=e.currentTarget.value.trim();const p=state.products.find(p=>String(p.barcode||'')===value)||state.products.find(p=>p.name.toLowerCase().includes(value.toLowerCase()));if(p){addProductToCart(p);e.currentTarget.value='';renderCatalog();}else if(value)alert('Produto não encontrado.');});
-  $('productGrid').addEventListener('click',e=>{const b=e.target.closest('[data-product-id]');if(!b)return;const p=state.products.find(p=>p.id===b.dataset.productId);if(p)addProductToCart(p);});
-  $('cartRows').addEventListener('click',e=>{const inc=e.target.closest('[data-inc]'),dec=e.target.closest('[data-dec]'),rem=e.target.closest('[data-remove]');if(inc){state.cart[+inc.dataset.inc].qty+=1;}if(dec){const i=+dec.dataset.dec;state.cart[i].qty-=1;if(state.cart[i].qty<=0)state.cart.splice(i,1);}if(rem)state.cart.splice(+rem.dataset.remove,1);renderCart();});
+  $('productSearch').addEventListener('keydown',e=>{if(e.key!=='Enter')return;e.preventDefault();const value=e.currentTarget.value.trim();const p=state.products.find(p=>String(p.barcode||'')===value)||state.products.find(p=>p.name.toLowerCase().includes(value.toLowerCase()));if(p){if(isFractionalUnit(p.unit))openQuantityDialog(p);else addProductToCart(p);e.currentTarget.value='';renderCatalog();}else if(value)alert('Produto não encontrado.');});
+  $('productGrid').addEventListener('click',e=>{const b=e.target.closest('[data-product-id]');if(!b)return;const p=state.products.find(p=>p.id===b.dataset.productId);if(!p)return;if(isFractionalUnit(p.unit))openQuantityDialog(p);else addProductToCart(p);});
+  $('cartRows').addEventListener('click',e=>{
+    const inc=e.target.closest('[data-inc]'),dec=e.target.closest('[data-dec]'),rem=e.target.closest('[data-remove]');
+    if(inc){
+      const idx=+inc.dataset.inc,item=state.cart[idx],step=qtyStep(item.unit),next=Number(item.qty)+step;
+      const product=item.productId?state.products.find(p=>p.id===item.productId):null;
+      if(product && next>Number(product.stock||0)) return alert(`Estoque insuficiente. Disponível: ${formatQty(product.stock,product.unit)} ${product.unit}.`);
+      item.qty=Number(next.toFixed(3));
+    }
+    if(dec){
+      const idx=+dec.dataset.dec,item=state.cart[idx],step=qtyStep(item.unit),next=Number(item.qty)-step;
+      if(next<=0)state.cart.splice(idx,1);else item.qty=Number(next.toFixed(3));
+    }
+    if(rem)state.cart.splice(+rem.dataset.remove,1);
+    renderCart();
+  });
+  $('cartRows').addEventListener('change',e=>{
+    const input=e.target.closest('[data-qty-input]');
+    if(!input)return;
+    const idx=+input.dataset.qtyInput,item=state.cart[idx];
+    if(!item)return;
+    const qty=parseQty(input.value);
+    if(qty<=0){alert('Digite uma quantidade maior que zero.');renderCart();return;}
+    if((item.unit||'un.')==='un.' && !Number.isInteger(qty)){alert('Produtos por unidade precisam usar 1, 2, 3...');renderCart();return;}
+    const product=item.productId?state.products.find(p=>p.id===item.productId):null;
+    if(product && qty>Number(product.stock||0)){alert(`Estoque insuficiente. Disponível: ${formatQty(product.stock,product.unit)} ${product.unit}.`);renderCart();return;}
+    item.qty=Number(qty.toFixed(3));
+    renderCart();
+  });
   $('discountInput').addEventListener('input',e=>{state.discount=Number(e.target.value||0);renderCart();});$('surchargeInput').addEventListener('input',e=>{state.surcharge=Number(e.target.value||0);renderCart();});
   $('clearCartButton').addEventListener('click',()=>{state.cart=[];renderCart();});$('clearSaleButton').addEventListener('click',()=>clearSale(true));$('cancelSaleTop').addEventListener('click',()=>clearSale(true));$('saveOpenSaleButton').addEventListener('click',saveOpenSale);
   $('finishSaleButton').addEventListener('click',()=>{if(!state.cart.length)return alert('Adicione itens à venda.');$('checkoutPanel').scrollIntoView({behavior:'smooth',block:'start'});});
-  $$('[data-payment]').forEach(b=>b.addEventListener('click',()=>choosePayment(b.dataset.payment)));$('checkoutCustomer').addEventListener('change',e=>state.selectedCustomerId=e.target.value);$('confirmSaleButton').addEventListener('click',confirmSale);
+  $$('[data-payment]').forEach(b=>b.addEventListener('click',()=>choosePayment(b.dataset.payment)));$('cashReceivedInput')?.addEventListener('input',updateCashChange);$('checkoutCustomer').addEventListener('change',e=>state.selectedCustomerId=e.target.value);$('confirmSaleButton').addEventListener('click',confirmSale);
   $('scanButton').addEventListener('click',()=>{$('productSearch').focus();alert('O campo está pronto para leitores USB/Bluetooth que funcionam como teclado. A leitura pela câmera entra na próxima etapa.');});
+  $('quantityValue').addEventListener('input',updateQuantityPreview);
+  $('confirmQuantityButton').addEventListener('click',e=>{if(!addSelectedQuantity())e.preventDefault();});
   $('addLooseButton').addEventListener('click',()=>{$('looseName').value='';$('looseQty').value='1';$('loosePrice').value='';$('looseDialog').showModal();});
   $('saveLooseButton').addEventListener('click',e=>{if(!$('looseForm').reportValidity()){e.preventDefault();return;}state.cart.push({id:uid(),productId:'',name:$('looseName').value.trim(),qty:Number($('looseQty').value||1),unit:$('looseUnit').value,price:Number($('loosePrice').value||0),loose:true});renderCart();});
 
@@ -244,5 +375,5 @@
   window.addEventListener('keydown',e=>{if(e.key==='F2'){e.preventDefault();navigate('pos');$('productSearch').focus();}if(e.key==='F3'){e.preventDefault();saveOpenSale();}if(e.key==='F4'){e.preventDefault();if(state.cart.length)$('checkoutPanel').scrollIntoView({behavior:'smooth'});}});
 
   renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderHistory();renderReports();renderCash();renderSettings();
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.2.0').catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.4.0').catch(()=>{});
 })();

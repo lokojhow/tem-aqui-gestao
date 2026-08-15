@@ -1,198 +1,248 @@
-
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const qsa = (s) => [...document.querySelectorAll(s)];
-  const money = (v) => Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const $$ = (sel) => [...document.querySelectorAll(sel)];
+  const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
   const read = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k)) ?? fallback; } catch { return fallback; } };
   const write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  const nowLocal = () => new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  const todayKey = () => new Date().toISOString().slice(0, 10);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  const demoProducts = [
+    ['Picanha Bovina 1kg','7891234567895',37,15,'Carnes Bovina','🥩','kg',28],
+    ['Contra Filé 1kg','7891234567896',32,18,'Carnes Bovina','🥩','kg',24],
+    ['Coxão Mole 1kg','7891234567897',28.9,22,'Carnes Bovina','🥩','kg',21],
+    ['Alcatra Bovina 1kg','7891234567898',29.9,14,'Carnes Bovina','🥩','kg',22],
+    ['Linguiça Suína 1kg','7891234567899',16.9,12,'Carnes Suína','🌭','kg',12],
+    ['Frango Inteiro 1kg','7891234567800',9.9,20,'Aves','🍗','kg',7],
+    ['Queijo Coalho 1kg','7891234567801',24.9,8,'Frios','🧀','kg',18],
+    ['Refrigerante 2L','7894900011517',10.9,24,'Bebidas','🥤','un.',7.5],
+    ['Arroz 5kg Tio João','7891234567803',22.9,16,'Mercearia','🍚','un.',18],
+    ['Feijão Preto 1kg','7891234567804',7.9,30,'Mercearia','🫘','un.',5.5],
+    ['Óleo de Soja 900ml','7891234567805',8.9,26,'Mercearia','🫗','un.',6.5],
+    ['Água Mineral 500ml','7891234567806',1.5,60,'Bebidas','💧','un.',0.8]
+  ].map(([name,barcode,price,stock,category,icon,unit,cost]) => ({id:uid(),name,barcode,price,stock,category,icon,unit,cost,showcase:false,active:true}));
+
+  let products = read('tag-products', []);
+  if (!Array.isArray(products)) products = [];
+  products = products.map(p => ({category:'Outros',icon:'📦',unit:'un.',cost:0,active:true,showcase:false,...p}));
+  if (!localStorage.getItem('tag-v02-seeded') && products.length <= 4) {
+    const existingBars = new Set(products.map(p => String(p.barcode || '')));
+    demoProducts.forEach(p => { if (!existingBars.has(String(p.barcode))) products.push(p); });
+    localStorage.setItem('tag-v02-seeded', '1');
+  }
 
   const state = {
-    products: read('tag-products', [
-      {id: crypto.randomUUID(), name:'Ração Premium 1kg', barcode:'789100000001', price:18.90, stock:12, showcase:true},
-      {id: crypto.randomUUID(), name:'Shampoo Pet 500ml', barcode:'789100000002', price:24.50, stock:8, showcase:false}
+    products,
+    customers: read('tag-customers', [
+      {id:uid(),name:'João da Silva',whatsapp:'(87) 99999-1234',limit:500,debt:265.80},
+      {id:uid(),name:'Maria Aparecida',whatsapp:'(87) 98888-4567',limit:400,debt:120},
+      {id:uid(),name:'José Oliveira',whatsapp:'(87) 97777-7777',limit:300,debt:0},
+      {id:uid(),name:'Ana Paula Santos',whatsapp:'(87) 96666-8888',limit:300,debt:89.50}
     ]),
-    customers: read('tag-customers', []),
     sales: read('tag-sales', []),
+    payments: read('tag-payments', []),
+    openSales: read('tag-open-sales', []),
+    settings: read('tag-settings', {storeName:'Frigorífico Boi Bom',operator:'Proprietário'}),
+    cash: read('tag-cash', {open:false,opening:0,openedAt:null}),
     cart: [],
-    selectedCustomerId: ''
+    discount: 0,
+    surcharge: 0,
+    payment: '',
+    selectedCustomerId: '',
+    selectedManageProductId: '',
+    selectedCustomerDetailId: '',
+    catalogFilter: 'all',
+    saleStartedAt: new Date(),
+    saleId: nextSaleId()
   };
 
-  function persist(){
-    write('tag-products', state.products);
-    write('tag-customers', state.customers);
-    write('tag-sales', state.sales);
+  function nextSaleId() {
+    const all = read('tag-sales', []);
+    return `#${String((Array.isArray(all) ? all.length : 0) + 1).padStart(6, '0')}`;
+  }
+  function persist() {
+    write('tag-products', state.products); write('tag-customers', state.customers); write('tag-sales', state.sales);
+    write('tag-payments', state.payments); write('tag-open-sales', state.openSales); write('tag-settings', state.settings); write('tag-cash', state.cash);
+  }
+  function cartSubtotal(){ return state.cart.reduce((a,i)=>a + Number(i.price||0)*Number(i.qty||0),0); }
+  function cartTotal(){ return Math.max(0, cartSubtotal() - Number(state.discount||0) + Number(state.surcharge||0)); }
+  function soldItemsToday(){ return state.sales.filter(s=>String(s.createdAt).slice(0,10)===todayKey()).reduce((a,s)=>a+s.items.reduce((n,i)=>n+Number(i.qty||0),0),0); }
+  function salesToday(){ return state.sales.filter(s=>String(s.createdAt).slice(0,10)===todayKey()); }
+  function iconForProduct(p){ return p.icon || (/carne|picanha|filé|file|alcatra|coxão/i.test(p.name)?'🥩':/bebida|refrigerante/i.test(p.category+' '+p.name)?'🥤':/queijo/i.test(p.name)?'🧀':'📦'); }
+
+  function navigate(route) {
+    $$('.view').forEach(v => v.classList.toggle('active', v.dataset.view === route));
+    $$('.side-route').forEach(b => b.classList.toggle('active', b.dataset.route === route));
+    if(route==='pos') renderPos();
+    if(route==='customers') renderCustomers();
+    if(route==='products') renderManageProducts();
+    if(route==='stock') renderStock();
+    if(route==='history') renderHistory();
+    if(route==='reports') renderReports();
+    if(route==='cash') renderCash();
+    if(route==='settings') renderSettings();
+    window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  function navigate(route){
-    qsa('.view').forEach(v => v.classList.toggle('active', v.dataset.view === route));
-    qsa('[data-route]').forEach(b => b.classList.toggle('active', b.dataset.route === route));
-    if(route === 'home') renderDashboard();
-    if(route === 'products') renderProducts();
-    if(route === 'customers') renderCustomers();
-    if(route === 'promotions') renderShowcase();
-    if(route === 'pos') renderCart();
-    scrollTo({top:0,behavior:'smooth'});
+  function renderSidebar(){
+    const sales = salesToday();
+    $('sideSales').textContent = money(sales.reduce((a,s)=>a+Number(s.total||0),0));
+    $('sideReceipts').textContent = money(sales.filter(s=>s.payment!=='ficha').reduce((a,s)=>a+Number(s.total||0),0) + state.payments.filter(p=>String(p.createdAt).slice(0,10)===todayKey()).reduce((a,p)=>a+Number(p.amount||0),0));
+    $('sideCredit').textContent = money(state.customers.reduce((a,c)=>a+Number(c.debt||0),0));
+    $('sideItems').textContent = soldItemsToday().toLocaleString('pt-BR');
+    $('sideOrders').textContent = String(sales.length);
+    $('openSaleBadge').textContent = String(state.openSales.length);
+    $('storeName').textContent = state.settings.storeName || 'Minha Loja';
   }
 
-  function renderDashboard(){
-    const today = new Date().toISOString().slice(0,10);
-    const sales = state.sales.filter(s => String(s.createdAt).slice(0,10) === today);
-    const salesTotal = sales.reduce((a,s)=>a+s.total,0);
-    const stock = state.products.reduce((a,p)=>a+Number(p.stock||0),0);
-    const credit = state.customers.reduce((a,c)=>a+Number(c.debt||0),0);
-    $('kpiSales').textContent = money(salesTotal);
-    $('kpiStock').textContent = String(stock);
-    $('kpiCredit').textContent = money(credit);
-    $('kpiShowcase').textContent = String(state.products.filter(p=>p.showcase).length);
+  function renderPos(){
+    $('saleId').textContent = state.saleId;
+    $('saleStarted').textContent = state.saleStartedAt.toLocaleString('pt-BR', {dateStyle:'short',timeStyle:'short'});
+    renderCategories(); renderCatalog(); renderCart(); renderCheckoutCustomers(); renderSidebar();
   }
-
-  function renderProducts(){
-    const term = ($('productSearch').value || '').toLowerCase().trim();
-    const list = state.products.filter(p => !term || `${p.name} ${p.barcode}`.toLowerCase().includes(term));
-    $('productList').innerHTML = list.map(p => `<article>
-      <div><h3>${p.name}</h3><p>${p.barcode || 'Sem código'} · Estoque: ${p.stock} · ${money(p.price)}</p>${p.showcase?'<span class="badge">Na vitrine</span>':''}</div>
-      <button class="secondary" data-edit-product="${p.id}">Editar</button>
-    </article>`).join('') || '<article><div><h3>Nenhum produto</h3><p>Cadastre o primeiro produto da loja.</p></div></article>';
+  function renderCategories(){
+    const categories = [...new Set(state.products.map(p=>p.category || 'Outros'))].sort();
+    $('categoryFilter').innerHTML = '<option value="">Categorias</option>' + categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  }
+  function filteredProducts(){
+    const term = String($('productSearch').value || '').trim().toLowerCase();
+    const category = $('categoryFilter').value;
+    let list = state.products.filter(p=>p.active!==false);
+    if(term) list = list.filter(p=>`${p.name} ${p.barcode||''}`.toLowerCase().includes(term));
+    if(category) list = list.filter(p=>(p.category||'Outros')===category);
+    if(state.catalogFilter==='stock') list = list.filter(p=>Number(p.stock||0)>0);
+    if(state.catalogFilter==='recent') list = list.slice(-8).reverse();
+    if(state.catalogFilter==='loose') list = [];
+    return list;
+  }
+  function renderCatalog(){
+    const list = filteredProducts();
+    $('productGrid').innerHTML = list.map(p=>`<button class="product-card" data-product-id="${p.id}"><div class="product-visual">${iconForProduct(p)}</div><h3>${esc(p.name)}</h3><strong>${money(p.price)}</strong><small>${Number(p.stock||0).toLocaleString('pt-BR')} ${esc(p.unit||'un.')}</small></button>`).join('') || '<div class="empty-state" style="grid-column:1/-1;min-height:180px">Nenhum produto encontrado.</div>';
+  }
+  function addProductToCart(product, qty=1){
+    const existing = state.cart.find(i=>i.productId===product.id && !i.loose);
+    if(existing) existing.qty = Number(existing.qty)+Number(qty); else state.cart.push({id:uid(),productId:product.id,name:product.name,price:Number(product.price||0),qty:Number(qty),unit:product.unit||'un.',loose:false});
+    renderCart();
+  }
+  function renderCart(){
+    $('cartCount').textContent = String(state.cart.length);
+    $('emptyCart').hidden = state.cart.length>0;
+    $('cartRows').innerHTML = state.cart.map((i,index)=>`<tr><td>${esc(i.name)}${i.loose?'<small> (avulso)</small>':''}</td><td><span class="qty-control"><button data-dec="${index}">−</button><span>${Number(i.qty).toLocaleString('pt-BR')}</span><button data-inc="${index}">+</button></span></td><td>${money(i.price)}</td><td>${money(i.price*i.qty)}</td><td><button class="remove-item" data-remove="${index}">⌫</button></td></tr>`).join('');
+    const subtotal=cartSubtotal(), total=cartTotal();
+    $('subtotal').textContent = money(subtotal); $('grandTotal').textContent = money(total);
+    $('checkoutSubtotal').textContent=money(subtotal); $('checkoutDiscount').textContent=money(state.discount); $('checkoutSurcharge').textContent=money(state.surcharge); $('checkoutTotal').textContent=money(total);
+  }
+  function renderCheckoutCustomers(){
+    $('checkoutCustomer').innerHTML='<option value="">Selecione o cliente</option>'+state.customers.map(c=>`<option value="${c.id}" ${c.id===state.selectedCustomerId?'selected':''}>${esc(c.name)} — ${money(c.debt||0)}</option>`).join('');
+  }
+  function clearSale(confirmFirst=true){
+    if(confirmFirst && state.cart.length && !confirm('Limpar a venda atual?')) return;
+    state.cart=[];state.discount=0;state.surcharge=0;state.payment='';state.selectedCustomerId='';state.saleStartedAt=new Date();state.saleId=nextSaleId();
+    $('discountInput').value='0';$('surchargeInput').value='0';$$('[data-payment]').forEach(b=>b.classList.remove('active'));$('paymentHint').textContent='Selecione a forma de pagamento para confirmar a venda.';renderPos();
+  }
+  function saveOpenSale(){
+    if(!state.cart.length) return alert('Adicione itens antes de salvar a venda.');
+    state.openSales.push({id:uid(),saleId:state.saleId,createdAt:new Date().toISOString(),cart:structuredClone(state.cart),discount:state.discount,surcharge:state.surcharge});persist();renderSidebar();alert('Venda salva em aberto.');
+  }
+  function choosePayment(payment){
+    state.payment=payment;$$('[data-payment]').forEach(b=>b.classList.toggle('active',b.dataset.payment===payment));
+    $('paymentHint').textContent = payment==='ficha' ? 'Ao selecionar Ficha, a venda será lançada na conta do cliente.' : `Pagamento selecionado: ${payment}.`;
+  }
+  function confirmSale(){
+    if(!state.cart.length) return alert('A venda está vazia.');
+    if(!state.payment) return alert('Selecione uma forma de pagamento.');
+    let customer=null;
+    if(state.payment==='ficha'){
+      const cid=$('checkoutCustomer').value; customer=state.customers.find(c=>c.id===cid);
+      if(!customer) return alert('Selecione o cliente para vender na ficha.');
+      const total=cartTotal();
+      if(Number(customer.limit||0)>0 && Number(customer.debt||0)+total>Number(customer.limit||0)) return alert('A venda ultrapassa o limite de crédito deste cliente.');
+      customer.debt=Number(customer.debt||0)+total; state.selectedCustomerId=customer.id;
+    }
+    state.cart.forEach(i=>{if(i.loose)return;const p=state.products.find(p=>p.id===i.productId);if(p)p.stock=Math.max(0,Number(p.stock||0)-Number(i.qty||0));});
+    const sale={id:uid(),saleId:state.saleId,createdAt:new Date().toISOString(),startedAt:state.saleStartedAt.toISOString(),items:structuredClone(state.cart),subtotal:cartSubtotal(),discount:Number(state.discount||0),surcharge:Number(state.surcharge||0),total:cartTotal(),payment:state.payment,customerId:customer?.id||null,dueDate:$('checkoutDueDate').value||null,note:$('checkoutNote').value.trim()};
+    state.sales.push(sale);persist();const total=sale.total;clearSale(false);renderSidebar();alert(`Venda concluída: ${money(total)}`);
   }
 
   function renderCustomers(){
-    $('customerList').innerHTML = state.customers.map(c => `<article>
-      <div><h3>${c.name}</h3><p>${c.whatsapp || 'Sem WhatsApp'} · Fiado: ${money(c.debt || 0)} / limite ${money(c.limit || 0)}</p></div>
-      <button class="secondary" data-edit-customer="${c.id}">Editar</button>
-    </article>`).join('') || '<article><div><h3>Nenhum cliente cadastrado</h3><p>Cadastre clientes para usar ficha/fiado.</p></div></article>';
+    const term=String($('customerSearch')?.value||'').toLowerCase();
+    const list=state.customers.filter(c=>`${c.name} ${c.whatsapp||''}`.toLowerCase().includes(term));
+    $('customerList').innerHTML=list.map(c=>`<div class="customer-row ${c.id===state.selectedCustomerDetailId?'active':''}" data-customer-id="${c.id}"><div class="customer-avatar">${esc(c.name.split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase())}</div><div><b>${esc(c.name)}</b><small>${esc(c.whatsapp||'Sem WhatsApp')}</small></div><div class="customer-balance"><span>Saldo em aberto</span><strong class="${Number(c.debt||0)<=0?'ok':''}">${money(c.debt||0)}</strong></div></div>`).join('')||'<div class="empty-state">Nenhum cliente encontrado.</div>';
+    renderCustomerDetail();
+  }
+  function customerMovements(customer){
+    const sales=state.sales.filter(s=>s.customerId===customer.id).map(s=>({date:s.createdAt,desc:`Compra PDV ${s.saleId}`,type:'Compra',value:s.total,kind:'debit'}));
+    const pays=state.payments.filter(p=>p.customerId===customer.id).map(p=>({date:p.createdAt,desc:p.note||'Pagamento',type:'Pagamento',value:p.amount,kind:'credit'}));
+    return [...sales,...pays].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  }
+  function renderCustomerDetail(){
+    const c=state.customers.find(c=>c.id===state.selectedCustomerDetailId);
+    if(!c){$('customerDetail').innerHTML='<div class="empty-state">Selecione um cliente para abrir a ficha.</div>';return;}
+    const sales=state.sales.filter(s=>s.customerId===c.id);const paid=state.payments.filter(p=>p.customerId===c.id).reduce((a,p)=>a+Number(p.amount||0),0);const bought=sales.reduce((a,s)=>a+Number(s.total||0),0);
+    const mov=customerMovements(c);
+    $('customerDetail').innerHTML=`<div class="detail-header"><div class="customer-avatar">${esc(c.name.split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase())}</div><div><h2>${esc(c.name)}</h2><p>${esc(c.whatsapp||'Sem WhatsApp')}</p><p>Limite de crédito: <b>${money(c.limit||0)}</b></p></div><div class="balance-big"><span>Saldo em aberto</span><strong>${money(c.debt||0)}</strong></div></div><div class="detail-kpis"><div><span>Total comprado</span><strong>${money(bought)}</strong></div><div><span>Total pago</span><strong style="color:#0b8f4f">${money(paid)}</strong></div><div><span>Saldo em aberto</span><strong style="color:#d33f3f">${money(c.debt||0)}</strong></div></div><table class="movements"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead><tbody>${mov.map(m=>`<tr><td>${new Date(m.date).toLocaleDateString('pt-BR')}</td><td>${esc(m.desc)}</td><td>${m.type}</td><td style="color:${m.kind==='credit'?'#0b8f4f':'#d33f3f'}">${money(m.value)}</td></tr>`).join('')||'<tr><td colspan="4">Sem movimentações.</td></tr>'}</tbody></table><div class="detail-actions"><button class="green" data-receive-payment="${c.id}">Receber Pagamento</button><button class="green" data-sale-to-customer="${c.id}" style="background:#fff;color:#087b45;border:1px solid #0b8f4f">Nova Venda na Ficha</button></div>`;
+  }
+  function openCustomerDialog(c=null){$('customerId').value=c?.id||'';$('customerName').value=c?.name||'';$('customerWhatsapp').value=c?.whatsapp||'';$('customerLimit').value=c?.limit??0;$('customerDialog').showModal();}
+  function saveCustomer(){const id=$('customerId').value||uid();const prev=state.customers.find(c=>c.id===id);const obj={id,name:$('customerName').value.trim(),whatsapp:$('customerWhatsapp').value.trim(),limit:Number($('customerLimit').value||0),debt:Number(prev?.debt||0)};const idx=state.customers.findIndex(c=>c.id===id);if(idx>=0)state.customers[idx]=obj;else state.customers.push(obj);state.selectedCustomerDetailId=id;persist();renderCustomers();renderCheckoutCustomers();renderSidebar();}
+  function openPayment(c){$('paymentCustomerName').textContent=`${c.name} — saldo ${money(c.debt||0)}`;$('paymentAmount').value='';$('paymentNote').value='';$('paymentDialog').dataset.customerId=c.id;$('paymentDialog').showModal();}
+  function savePayment(){const c=state.customers.find(c=>c.id===$('paymentDialog').dataset.customerId);if(!c)return;const amount=Number($('paymentAmount').value||0);if(amount<=0)return;if(amount>Number(c.debt||0) && !confirm('O valor é maior que o saldo em aberto. Continuar?'))return;c.debt=Math.max(0,Number(c.debt||0)-amount);state.payments.push({id:uid(),customerId:c.id,amount,createdAt:new Date().toISOString(),note:$('paymentNote').value.trim()});persist();renderCustomers();renderSidebar();}
+
+  function renderManageProducts(){
+    const term=String($('manageProductSearch')?.value||'').toLowerCase();const list=state.products.filter(p=>`${p.name} ${p.barcode||''}`.toLowerCase().includes(term));
+    $('manageProductList').innerHTML=list.map(p=>`<div class="manage-product-row ${p.id===state.selectedManageProductId?'active':''}" data-manage-product="${p.id}"><div class="product-visual" style="width:42px;height:42px;font-size:27px">${iconForProduct(p)}</div><div><b>${esc(p.name)}</b><small>${esc(p.barcode||'Sem código')} · ${money(p.price)}</small></div><strong>${Number(p.stock||0).toLocaleString('pt-BR')} ${esc(p.unit||'un.')}</strong></div>`).join('')||'<div class="empty-state">Nenhum produto.</div>';
+    renderProductEditor();
+  }
+  function renderProductEditor(newMode=false){
+    const p=newMode?{id:'',name:'',barcode:'',sku:'',category:'Outros',price:0,cost:0,stock:0,unit:'un.',showcase:false,active:true,icon:'📦'}:state.products.find(p=>p.id===state.selectedManageProductId);
+    if(!p){$('productEditor').innerHTML='<div class="empty-state">Selecione um produto ou clique em Novo Produto.</div>';return;}
+    $('productEditor').innerHTML=`<div class="editor-title"><div class="product-visual">${iconForProduct(p)}</div><div><h2>${esc(p.name||'Novo produto')}</h2><small>${esc(p.unit||'un.')} · ${p.active!==false?'Ativo':'Inativo'}</small></div></div><form id="editorForm" class="editor-form"><input type="hidden" id="editProductId" value="${esc(p.id)}"><label>Nome<input id="editProductName" value="${esc(p.name)}" required></label><label>Categoria<input id="editProductCategory" value="${esc(p.category||'Outros')}"></label><label>Código de Barras (EAN/GTIN)<input id="editProductBarcode" value="${esc(p.barcode||'')}"></label><label>Código Interno (SKU)<input id="editProductSku" value="${esc(p.sku||'')}"></label><label>Preço de Venda (R$)<input id="editProductPrice" type="number" min="0" step="0.01" value="${Number(p.price||0)}"></label><label>Custo (R$)<input id="editProductCost" type="number" min="0" step="0.01" value="${Number(p.cost||0)}"></label><label>Estoque Atual<input id="editProductStock" type="number" min="0" step="0.001" value="${Number(p.stock||0)}"></label><label>Unidade<select id="editProductUnit"><option ${p.unit==='un.'?'selected':''}>un.</option><option ${p.unit==='kg'?'selected':''}>kg</option><option ${p.unit==='g'?'selected':''}>g</option><option ${p.unit==='L'?'selected':''}>L</option></select></label><label class="toggle-line wide"><span>Mostrar no Tem Aqui</span><input id="editProductShowcase" type="checkbox" ${p.showcase?'checked':''}></label><label class="toggle-line wide"><span>Produto ativo</span><input id="editProductActive" type="checkbox" ${p.active!==false?'checked':''}></label><div class="editor-actions"><button type="button" class="dark" id="cancelProductEdit">Cancelar</button><button class="green" type="submit">Salvar Alterações</button></div></form>`;
+    $('editorForm').addEventListener('submit',e=>{e.preventDefault();saveManagedProduct();});$('cancelProductEdit').addEventListener('click',()=>{state.selectedManageProductId='';renderManageProducts();});
+  }
+  function saveManagedProduct(){
+    const id=$('editProductId').value||uid();const prev=state.products.find(p=>p.id===id);const obj={id,name:$('editProductName').value.trim(),category:$('editProductCategory').value.trim()||'Outros',barcode:$('editProductBarcode').value.trim(),sku:$('editProductSku').value.trim(),price:Number($('editProductPrice').value||0),cost:Number($('editProductCost').value||0),stock:Number($('editProductStock').value||0),unit:$('editProductUnit').value,showcase:$('editProductShowcase').checked,active:$('editProductActive').checked,icon:prev?.icon||'📦'};const idx=state.products.findIndex(p=>p.id===id);if(idx>=0)state.products[idx]=obj;else state.products.push(obj);state.selectedManageProductId=id;persist();renderManageProducts();renderCategories();renderCatalog();renderSidebar();
   }
 
-  function renderShowcase(){
-    $('showcaseList').innerHTML = state.products.map(p => `<article>
-      <div><h3>${p.name}</h3><p>${money(p.price)} · estoque ${p.stock}</p></div>
-      <label class="check"><input type="checkbox" data-showcase="${p.id}" ${p.showcase?'checked':''}> Na vitrine</label>
-    </article>`).join('');
+  function renderStock(){
+    $('stockTable').innerHTML=`<table class="simple-table"><thead><tr><th>Produto</th><th>Categoria</th><th>Código</th><th>Estoque</th><th>Custo</th><th>Venda</th></tr></thead><tbody>${state.products.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.category||'Outros')}</td><td>${esc(p.barcode||'-')}</td><td>${Number(p.stock||0).toLocaleString('pt-BR')} ${esc(p.unit||'un.')}</td><td>${money(p.cost||0)}</td><td>${money(p.price||0)}</td></tr>`).join('')}</tbody></table>`;
   }
-
-  function addToCart(product){
-    const existing = state.cart.find(i=>i.productId===product.id);
-    if(existing) existing.qty += 1;
-    else state.cart.push({productId:product.id,name:product.name,price:Number(product.price),qty:1,loose:false});
-    renderCart();
+  function renderHistory(){
+    const rows=[...state.sales].reverse();$('historyTable').innerHTML=`<table class="simple-table"><thead><tr><th>Venda</th><th>Data</th><th>Pagamento</th><th>Itens</th><th>Total</th></tr></thead><tbody>${rows.map(s=>`<tr><td>${esc(s.saleId||s.id)}</td><td>${new Date(s.createdAt).toLocaleString('pt-BR')}</td><td>${esc(s.payment||'-')}</td><td>${s.items?.length||0}</td><td>${money(s.total||0)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhuma venda realizada.</td></tr>'}</tbody></table>`;
   }
-
-  function renderCart(){
-    $('cartList').innerHTML = state.cart.map((i,index)=>`<article>
-      <div><h3>${i.name}</h3><p>${money(i.price)} cada</p></div>
-      <div class="cart-actions"><button data-cart-dec="${index}">−</button><b>${i.qty}</b><button data-cart-inc="${index}">＋</button></div>
-    </article>`).join('') || '<article><div><h3>Venda vazia</h3><p>Leia um código de barras, busque um produto ou adicione um item avulso.</p></div></article>';
-    const subtotal = state.cart.reduce((a,i)=>a+(i.price*i.qty),0);
-    $('subtotal').textContent = money(subtotal);
-    $('discountTotal').textContent = money(0);
-    $('grandTotal').textContent = money(subtotal);
+  function renderReports(){
+    const sales=salesToday(),total=sales.reduce((a,s)=>a+Number(s.total||0),0),ticket=sales.length?total/sales.length:0,credit=state.customers.reduce((a,c)=>a+Number(c.debt||0),0);
+    $('reportsContent').innerHTML=`<article><span>Vendas hoje</span><strong>${money(total)}</strong></article><article><span>Pedidos</span><strong>${sales.length}</strong></article><article><span>Ticket médio</span><strong>${money(ticket)}</strong></article><article><span>Fiado em aberto</span><strong>${money(credit)}</strong></article><article><span>Itens vendidos</span><strong>${soldItemsToday().toLocaleString('pt-BR')}</strong></article><article><span>Produtos cadastrados</span><strong>${state.products.length}</strong></article><article><span>Clientes</span><strong>${state.customers.length}</strong></article><article><span>Vendas salvas</span><strong>${state.openSales.length}</strong></article>`;
   }
-
-  function findProduct(term){
-    const value = String(term||'').trim().toLowerCase();
-    return state.products.find(p => String(p.barcode||'')===value) || state.products.find(p => p.name.toLowerCase().includes(value));
+  function renderCash(){
+    $('cashStatus').textContent=state.cash.open?`Caixa aberto desde ${new Date(state.cash.openedAt).toLocaleString('pt-BR')}`:'Caixa fechado';$('cashOpening').value=Number(state.cash.opening||0);const total=salesToday().filter(s=>s.payment!=='ficha').reduce((a,s)=>a+Number(s.total||0),0);$('cashSummary').innerHTML=`<p>Valor inicial: <b>${money(state.cash.opening||0)}</b></p><p>Recebimentos de vendas hoje: <b>${money(total)}</b></p><p>Total estimado em caixa: <b>${money(Number(state.cash.opening||0)+total)}</b></p>`;
   }
+  function renderSettings(){$('settingsStoreName').value=state.settings.storeName||'';$('settingsOperator').value=state.settings.operator||'';}
 
-  function openProduct(product=null){
-    $('productId').value = product?.id || '';
-    $('productName').value = product?.name || '';
-    $('productBarcode').value = product?.barcode || '';
-    $('productPrice').value = product?.price ?? '';
-    $('productStock').value = product?.stock ?? '';
-    $('productShowcase').checked = Boolean(product?.showcase);
-    $('productDialog').showModal();
-  }
+  $$('.side-route').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.route)));
+  $$('.catalog-tabs button').forEach(b=>b.addEventListener('click',()=>{state.catalogFilter=b.dataset.filter;$$('.catalog-tabs button').forEach(x=>x.classList.toggle('active',x===b));renderCatalog();}));
+  $('categoryFilter').addEventListener('change',renderCatalog);$('productSearch').addEventListener('input',renderCatalog);
+  $('productSearch').addEventListener('keydown',e=>{if(e.key!=='Enter')return;e.preventDefault();const value=e.currentTarget.value.trim();const p=state.products.find(p=>String(p.barcode||'')===value)||state.products.find(p=>p.name.toLowerCase().includes(value.toLowerCase()));if(p){addProductToCart(p);e.currentTarget.value='';renderCatalog();}else if(value)alert('Produto não encontrado.');});
+  $('productGrid').addEventListener('click',e=>{const b=e.target.closest('[data-product-id]');if(!b)return;const p=state.products.find(p=>p.id===b.dataset.productId);if(p)addProductToCart(p);});
+  $('cartRows').addEventListener('click',e=>{const inc=e.target.closest('[data-inc]'),dec=e.target.closest('[data-dec]'),rem=e.target.closest('[data-remove]');if(inc){state.cart[+inc.dataset.inc].qty+=1;}if(dec){const i=+dec.dataset.dec;state.cart[i].qty-=1;if(state.cart[i].qty<=0)state.cart.splice(i,1);}if(rem)state.cart.splice(+rem.dataset.remove,1);renderCart();});
+  $('discountInput').addEventListener('input',e=>{state.discount=Number(e.target.value||0);renderCart();});$('surchargeInput').addEventListener('input',e=>{state.surcharge=Number(e.target.value||0);renderCart();});
+  $('clearCartButton').addEventListener('click',()=>{state.cart=[];renderCart();});$('clearSaleButton').addEventListener('click',()=>clearSale(true));$('cancelSaleTop').addEventListener('click',()=>clearSale(true));$('saveOpenSaleButton').addEventListener('click',saveOpenSale);
+  $('finishSaleButton').addEventListener('click',()=>{if(!state.cart.length)return alert('Adicione itens à venda.');$('checkoutPanel').scrollIntoView({behavior:'smooth',block:'start'});});
+  $$('[data-payment]').forEach(b=>b.addEventListener('click',()=>choosePayment(b.dataset.payment)));$('checkoutCustomer').addEventListener('change',e=>state.selectedCustomerId=e.target.value);$('confirmSaleButton').addEventListener('click',confirmSale);
+  $('scanButton').addEventListener('click',()=>{$('productSearch').focus();alert('O campo está pronto para leitores USB/Bluetooth que funcionam como teclado. A leitura pela câmera entra na próxima etapa.');});
+  $('addLooseButton').addEventListener('click',()=>{$('looseName').value='';$('looseQty').value='1';$('loosePrice').value='';$('looseDialog').showModal();});
+  $('saveLooseButton').addEventListener('click',e=>{if(!$('looseForm').reportValidity()){e.preventDefault();return;}state.cart.push({id:uid(),productId:'',name:$('looseName').value.trim(),qty:Number($('looseQty').value||1),unit:$('looseUnit').value,price:Number($('loosePrice').value||0),loose:true});renderCart();});
 
-  function saveProduct(){
-    const id = $('productId').value || crypto.randomUUID();
-    const item = {
-      id,
-      name:$('productName').value.trim(),
-      barcode:$('productBarcode').value.trim(),
-      price:Number($('productPrice').value||0),
-      stock:Number($('productStock').value||0),
-      showcase:$('productShowcase').checked
-    };
-    const idx = state.products.findIndex(p=>p.id===id);
-    if(idx>=0) state.products[idx]=item; else state.products.push(item);
-    persist(); renderProducts(); renderDashboard();
-  }
+  $('newCustomerButton').addEventListener('click',()=>openCustomerDialog());$('customerSearch').addEventListener('input',renderCustomers);$('customerList').addEventListener('click',e=>{const r=e.target.closest('[data-customer-id]');if(r){state.selectedCustomerDetailId=r.dataset.customerId;renderCustomers();}});$('customerDetail').addEventListener('click',e=>{const pay=e.target.closest('[data-receive-payment]'),sale=e.target.closest('[data-sale-to-customer]');if(pay){const c=state.customers.find(c=>c.id===pay.dataset.receivePayment);if(c)openPayment(c);}if(sale){state.selectedCustomerId=sale.dataset.saleToCustomer;choosePayment('ficha');renderCheckoutCustomers();navigate('pos');setTimeout(()=>$('checkoutPanel').scrollIntoView({behavior:'smooth'}),100);}});
+  $('saveCustomerButton').addEventListener('click',e=>{if(!$('customerForm').reportValidity()){e.preventDefault();return;}saveCustomer();});$('savePaymentButton').addEventListener('click',e=>{if(!$('paymentForm').reportValidity()){e.preventDefault();return;}savePayment();});
 
-  function openCustomer(customer=null){
-    $('customerId').value = customer?.id || '';
-    $('customerName').value = customer?.name || '';
-    $('customerWhatsapp').value = customer?.whatsapp || '';
-    $('customerLimit').value = customer?.limit ?? 0;
-    $('customerDialog').showModal();
-  }
+  $('manageProductSearch').addEventListener('input',renderManageProducts);$('manageProductList').addEventListener('click',e=>{const r=e.target.closest('[data-manage-product]');if(r){state.selectedManageProductId=r.dataset.manageProduct;renderManageProducts();}});$('newProductButton').addEventListener('click',()=>renderProductEditor(true));
+  $('openCashButton').addEventListener('click',()=>{state.cash={open:true,opening:Number($('cashOpening').value||0),openedAt:new Date().toISOString()};persist();renderCash();});$('closeCashButton').addEventListener('click',()=>{state.cash={open:false,opening:0,openedAt:null};persist();renderCash();});
+  $('saveSettingsButton').addEventListener('click',()=>{state.settings={storeName:$('settingsStoreName').value.trim()||'Minha Loja',operator:$('settingsOperator').value.trim()||'Proprietário'};persist();renderSidebar();alert('Configurações salvas.');});
 
-  function saveCustomer(){
-    const id = $('customerId').value || crypto.randomUUID();
-    const previous = state.customers.find(c=>c.id===id);
-    const item = {id,name:$('customerName').value.trim(),whatsapp:$('customerWhatsapp').value.trim(),limit:Number($('customerLimit').value||0),debt:Number(previous?.debt||0)};
-    const idx = state.customers.findIndex(c=>c.id===id);
-    if(idx>=0) state.customers[idx]=item; else state.customers.push(item);
-    persist(); renderCustomers(); renderDashboard();
-  }
+  window.addEventListener('keydown',e=>{if(e.key==='F2'){e.preventDefault();navigate('pos');$('productSearch').focus();}if(e.key==='F3'){e.preventDefault();saveOpenSale();}if(e.key==='F4'){e.preventDefault();if(state.cart.length)$('checkoutPanel').scrollIntoView({behavior:'smooth'});}});
 
-  qsa('[data-route]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.route)));
-  $('newProductButton').addEventListener('click',()=>openProduct());
-  $('newCustomerButton').addEventListener('click',()=>openCustomer());
-  $('productSearch').addEventListener('input',renderProducts);
-
-  $('productList').addEventListener('click',e=>{const b=e.target.closest('[data-edit-product]');if(b)openProduct(state.products.find(p=>p.id===b.dataset.editProduct));});
-  $('customerList').addEventListener('click',e=>{const b=e.target.closest('[data-edit-customer]');if(b)openCustomer(state.customers.find(c=>c.id===b.dataset.editCustomer));});
-  $('showcaseList').addEventListener('change',e=>{const c=e.target.closest('[data-showcase]');if(!c)return;const p=state.products.find(p=>p.id===c.dataset.showcase);if(p){p.showcase=c.checked;persist();renderDashboard();}});
-  $('saveProductButton').addEventListener('click',e=>{if(!$('productForm').reportValidity()){e.preventDefault();return;} saveProduct();});
-  $('saveCustomerButton').addEventListener('click',e=>{if(!$('customerForm').reportValidity()){e.preventDefault();return;} saveCustomer();});
-
-  $('barcodeInput').addEventListener('keydown',e=>{
-    if(e.key!=='Enter')return;
-    e.preventDefault();
-    const p=findProduct(e.currentTarget.value);
-    if(p){addToCart(p);e.currentTarget.value='';}
-    else alert('Produto não encontrado. Cadastre o produto ou use Produto avulso.');
-  });
-  $('scanButton').addEventListener('click',()=>{$('barcodeInput').focus();alert('Nesta V0.1 o campo já aceita leitores Bluetooth/USB que funcionam como teclado. A câmera será adicionada na próxima etapa.');});
-  $('addLooseButton').addEventListener('click',()=>{$('looseName').value='';$('loosePrice').value='';$('looseDialog').showModal();});
-  $('saveLooseButton').addEventListener('click',e=>{
-    if(!$('looseForm').reportValidity()){e.preventDefault();return;}
-    state.cart.push({productId:'',name:$('looseName').value.trim(),price:Number($('loosePrice').value||0),qty:1,loose:true});renderCart();
-  });
-  $('cartList').addEventListener('click',e=>{
-    const inc=e.target.closest('[data-cart-inc]'),dec=e.target.closest('[data-cart-dec]');
-    if(inc){state.cart[Number(inc.dataset.cartInc)].qty+=1;renderCart();}
-    if(dec){const i=Number(dec.dataset.cartDec);state.cart[i].qty-=1;if(state.cart[i].qty<=0)state.cart.splice(i,1);renderCart();}
-  });
-  $('newSaleButton').addEventListener('click',()=>{if(confirm('Limpar a venda atual?')){state.cart=[];renderCart();}});
-  $('selectCustomerButton').addEventListener('click',()=>{
-    if(!state.customers.length)return alert('Cadastre um cliente primeiro.');
-    const names=state.customers.map((c,i)=>`${i+1} - ${c.name}`).join('\n');
-    const choice=Number(prompt(`Cliente da ficha:\n${names}\n\nDigite o número:`));
-    const customer=state.customers[choice-1];
-    if(customer){state.selectedCustomerId=customer.id;alert(`Cliente selecionado: ${customer.name}`);}
-  });
-  $('finishSaleButton').addEventListener('click',()=>{
-    if(!state.cart.length)return alert('Adicione pelo menos um item.');
-    const total=state.cart.reduce((a,i)=>a+i.price*i.qty,0);
-    const mode=prompt('Forma de pagamento: dinheiro, pix, cartão ou fiado?','pix')?.trim().toLowerCase();
-    if(!mode)return;
-    if(mode==='fiado'){
-      const customer=state.customers.find(c=>c.id===state.selectedCustomerId);
-      if(!customer)return alert('Selecione um cliente/ficha antes de vender fiado.');
-      if(customer.limit>0 && customer.debt+total>customer.limit)return alert('A venda ultrapassa o limite de fiado deste cliente.');
-      customer.debt=Number(customer.debt||0)+total;
-    }
-    state.cart.forEach(item=>{
-      if(item.loose)return;
-      const p=state.products.find(p=>p.id===item.productId);
-      if(p)p.stock=Math.max(0,Number(p.stock||0)-item.qty);
-    });
-    state.sales.push({id:crypto.randomUUID(),createdAt:new Date().toISOString(),total,mode,customerId:state.selectedCustomerId||null,items:state.cart});
-    state.cart=[];state.selectedCustomerId='';persist();renderCart();renderDashboard();alert(`Venda concluída: ${money(total)}`);
-  });
-
-  $('syncButton').addEventListener('click',()=>alert('Sincronização com o Tem Aqui será ligada quando conectarmos o banco do Gestão.'));
-  renderDashboard(); renderProducts(); renderCustomers(); renderShowcase(); renderCart();
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+  renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderHistory();renderReports();renderCash();renderSettings();
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.2.0').catch(()=>{});
 })();

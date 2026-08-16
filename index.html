@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#0b7a3d">
   <title>Tem Aqui Gestão</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=0.8.0">
+  <link rel="stylesheet" href="styles.css?v=0.9.0">
 </head>
 <body>
-<div class="app-version-badge" id="appVersionBadge" title="Versão instalada">V0.8.0</div>
+<div class="app-version-badge" id="appVersionBadge" title="Versão instalada">V0.9.0</div>
 <div class="app-shell">
   <aside class="sidebar">
     <div class="brand">
@@ -27,6 +27,7 @@
       <button class="side-route" data-route="promotions"><span>🏷</span> Promoções</button>
       <button class="side-route" data-route="reports"><span>▥</span> Relatórios</button>
       <button class="side-route" data-route="cash"><span>▱</span> Caixa (Abertura/Fecho)</button>
+      <button class="side-route" data-route="staff"><span>👥</span> Funcionários e Acessos</button>
       <button class="side-route" data-route="settings"><span>⚙</span> Configurações</button>
     </nav>
 
@@ -39,7 +40,7 @@
       <div><span>Pedidos</span><strong id="sideOrders">0</strong></div>
     </div>
 
-    <div class="store-card"><div class="avatar">TA</div><div><strong id="storeName">Minha Loja</strong><small>Proprietário</small></div><span>⌄</span></div>
+    <div class="store-card"><div class="avatar">TA</div><div><strong id="storeName">Minha Loja</strong><small id="currentOperatorRole">Proprietário</small></div><span>⌄</span></div>
   </aside>
 
   <div class="workspace">
@@ -169,7 +170,48 @@
       <section class="view" data-view="history"><div class="page-heading"><div><span>HISTÓRICO</span><h1>Vendas realizadas</h1></div></div><div id="historyTable" class="data-card"></div></section>
       <section class="view" data-view="reports"><div class="page-heading"><div><span>RELATÓRIOS</span><h1>Resumo de vendas</h1></div></div><div id="reportsContent" class="report-grid"></div></section>
       <section class="view" data-view="cash"><div class="page-heading"><div><span>CAIXA</span><h1>Abertura e fechamento</h1></div></div><div class="data-card cash-card"><h2 id="cashStatus">Caixa fechado</h2><label>Valor inicial<input id="cashOpening" type="number" min="0" step="0.01" value="0"></label><div class="cash-actions"><button id="openCashButton" class="green">Abrir caixa</button><button id="closeCashButton" class="dark">Fechar caixa</button></div><div id="cashSummary"></div></div></section>
-      <section class="view" data-view="settings"><div class="page-heading"><div><span>CONFIGURAÇÕES</span><h1>Minha loja</h1></div></div><div class="data-card settings-card"><label>Nome da loja<input id="settingsStoreName"></label><label>Nome do operador<input id="settingsOperator"></label><button id="saveSettingsButton" class="green">Salvar configurações</button></div></section>
+      <section class="view" data-view="staff">
+        <div class="page-heading">
+          <div><span>FUNCIONÁRIOS E ACESSOS</span><h1>Equipe da loja</h1></div>
+          <button id="newStaffButton" class="green">＋ Novo funcionário</button>
+        </div>
+        <div id="staffSummary" class="staff-summary"></div>
+        <article class="data-card staff-toolbar">
+          <div>
+            <b>Controle de acesso</b>
+            <small>O proprietário escolhe o que cada funcionário pode abrir e alterar.</small>
+          </div>
+          <button id="refreshStaffButton" class="dark">↻ Atualizar equipe</button>
+        </article>
+        <div id="staffList" class="staff-list"></div>
+      </section>
+
+      <section class="view" data-view="settings">
+        <div class="page-heading"><div><span>CONFIGURAÇÕES</span><h1>Minha loja</h1></div></div>
+        <div class="settings-layout">
+          <div class="data-card settings-card">
+            <h2>Loja e operador</h2>
+            <label>Nome da loja<input id="settingsStoreName"></label>
+            <label>Operador neste aparelho<select id="settingsOperatorSelect"></select></label>
+            <label>Nome do operador<input id="settingsOperator"></label>
+            <button id="saveSettingsButton" class="green">Salvar configurações</button>
+          </div>
+          <div class="data-card central-card">
+            <div class="central-head">
+              <div><span class="central-dot" id="centralDot"></span><div><h2>Banco Central Tem Aqui</h2><small id="centralStatus">Ainda não conectado.</small></div></div>
+              <span class="central-mode" id="centralMode">LOCAL</span>
+            </div>
+            <label>Comércio atual<select id="centralStoreSelect"><option value="">Nenhuma loja conectada</option></select></label>
+            <div class="central-actions">
+              <button id="centralLoginButton" class="dark">Entrar no banco</button>
+              <button id="centralSyncButton" class="green">↻ Sincronizar agora</button>
+              <button id="centralLogoutButton" class="light-button" hidden>Sair</button>
+            </div>
+            <p class="central-help">Quando o Supabase do Tem Aqui for conectado, produtos, lojas e equipe passam a vir do banco central. Os dados locais continuam como segurança até a migração ser conferida.</p>
+            <button id="openStaffFromSettings" class="light-button full">👥 Configurar funcionários e permissões</button>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 </div>
@@ -179,6 +221,63 @@
 </div>
 
 
+
+
+<dialog id="staffDialog" class="staff-dialog">
+  <form method="dialog" id="staffForm">
+    <h2 id="staffDialogTitle">Novo funcionário</h2>
+    <input type="hidden" id="staffId">
+    <div class="staff-form-grid">
+      <label>Nome
+        <input id="staffName" required maxlength="90" placeholder="Nome do funcionário">
+      </label>
+      <label>E-mail de acesso
+        <input id="staffEmail" type="email" required placeholder="funcionario@email.com">
+      </label>
+      <label>WhatsApp
+        <input id="staffWhatsapp" inputmode="tel" placeholder="(87) 99999-9999">
+      </label>
+      <label>Função
+        <select id="staffRole">
+          <option value="editor">Funcionário</option>
+          <option value="manager">Gerente</option>
+          <option value="owner">Proprietário</option>
+        </select>
+      </label>
+    </div>
+
+    <label class="toggle-line staff-active-line">
+      <span><b>Acesso ativo</b><small>Desative para impedir o funcionário de usar a loja.</small></span>
+      <input id="staffActive" type="checkbox" checked>
+    </label>
+
+    <section class="permissions-box">
+      <div class="permissions-head">
+        <div><b>Permissões</b><small>Você pode ajustar individualmente, mesmo depois de escolher a função.</small></div>
+        <button type="button" id="applyRolePermissions" class="dark">Usar padrão da função</button>
+      </div>
+      <div id="staffPermissions" class="permissions-grid"></div>
+    </section>
+
+    <div class="dialog-actions">
+      <button value="cancel">Cancelar</button>
+      <button value="default" id="saveStaffButton" class="green">Salvar funcionário</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="centralLoginDialog">
+  <form method="dialog" id="centralLoginForm">
+    <h2>Entrar no Tem Aqui Gestão</h2>
+    <p class="login-help">Use a mesma conta cadastrada no Tem Aqui.</p>
+    <label>E-mail<input id="centralEmail" type="email" required autocomplete="username"></label>
+    <label>Senha<input id="centralPassword" type="password" required autocomplete="current-password"></label>
+    <div class="dialog-actions">
+      <button value="cancel">Cancelar</button>
+      <button value="default" id="centralLoginSubmit" class="green">Entrar</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="categoryDialog">
   <form method="dialog" id="categoryForm">
@@ -261,6 +360,9 @@
 
 <dialog id="paymentDialog"><form method="dialog" id="paymentForm"><h2>Receber pagamento</h2><p id="paymentCustomerName"></p><label>Valor recebido<input id="paymentAmount" type="number" min="0.01" step="0.01" required></label><label>Observação<input id="paymentNote" placeholder="Ex.: Pix recebido"></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="savePaymentButton" class="green">Confirmar pagamento</button></div></form></dialog>
 
-<script src="app.js?v=0.8.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js?v=0.9.0"></script>
+<script src="gestao-backend.js?v=0.9.0"></script>
+<script src="app.js?v=0.9.0"></script>
 </body>
 </html>

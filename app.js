@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const APP_VERSION = '0.8.0';
+  const APP_VERSION = '0.9.0';
   const $ = (id) => document.getElementById(id);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
   const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -10,6 +10,29 @@
   const nowLocal = () => new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   const todayKey = () => new Date().toISOString().slice(0, 10);
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  const ACCESS_PERMISSIONS = [
+    ['sell','PDV e vendas','Criar, editar e finalizar vendas'],
+    ['products','Produtos','Cadastrar e editar produtos'],
+    ['stock','Estoque','Alterar estoque e categorias'],
+    ['customers','Clientes / ficha','Cadastrar clientes e abrir fichas'],
+    ['credit','Fiado / recebimentos','Lançar vendas na ficha e receber pagamentos'],
+    ['promotions','Promoções','Criar, editar e encerrar promoções'],
+    ['reports','Relatórios','Visualizar vendas, totais e relatórios'],
+    ['cash','Caixa','Abrir e fechar caixa'],
+    ['staff','Funcionários','Cadastrar, editar e desativar funcionários'],
+    ['settings','Configurações','Alterar configurações da loja']
+  ];
+  const rolePermissions = (role='editor') => {
+    const keys = Object.fromEntries(ACCESS_PERMISSIONS.map(([key]) => [key, false]));
+    if(role==='owner') ACCESS_PERMISSIONS.forEach(([key]) => keys[key]=true);
+    if(role==='manager') ACCESS_PERMISSIONS.forEach(([key]) => keys[key]=!['staff'].includes(key));
+    if(role==='editor') ['sell','products','stock','customers','credit','promotions','reports'].forEach(key=>keys[key]=true);
+    return keys;
+  };
+  const roleLabel = role => ({owner:'Proprietário',manager:'Gerente',editor:'Funcionário'})[role] || 'Funcionário';
+  const permissionLabel = key => ACCESS_PERMISSIONS.find(([id])=>id===key)?.[1] || key;
+
 
   const parseQty = (value) => {
     const normalized = String(value ?? '').trim().replace(',', '.');
@@ -57,6 +80,21 @@
     localStorage.setItem('tag-v02-seeded', '1');
   }
 
+  let localStaff = read('tag-staff-v09', []);
+  if(!Array.isArray(localStaff)) localStaff=[];
+  if(!localStaff.length){
+    const ownerId='local-owner';
+    localStaff=[{
+      id:ownerId,userId:null,name:'Proprietário',email:'',whatsapp:'',
+      role:'owner',active:true,permissions:rolePermissions('owner'),source:'local'
+    }];
+  } else {
+    localStaff=localStaff.map(member=>({
+      role:'editor',active:true,permissions:rolePermissions(member.role||'editor'),source:'local',...member,
+      permissions:{...rolePermissions(member.role||'editor'),...(member.permissions||{})}
+    }));
+  }
+
   const state = {
     products,
     customers: read('tag-customers', [
@@ -68,7 +106,12 @@
     sales: read('tag-sales', []),
     payments: read('tag-payments', []),
     openSales: read('tag-open-sales', []),
-    settings: read('tag-settings', {storeName:'Frigorífico Boi Bom',operator:'Proprietário'}),
+    settings: read('tag-settings', {storeName:'Frigorífico Boi Bom',operator:'Proprietário',currentStaffId:'local-owner'}),
+    staff: localStaff,
+    central: read('tag-central-v09', {storeId:'',storeName:'',connected:false,lastSync:null}),
+    centralStores: [],
+    centralSession: null,
+    centralMembership: null,
     cash: read('tag-cash', {open:false,opening:0,openedAt:null}),
     cart: [],
     discount: 0,
@@ -94,6 +137,7 @@
     write('tag-products', state.products); write('tag-customers', state.customers); write('tag-sales', state.sales);
     write('tag-payments', state.payments); write('tag-open-sales', state.openSales); write('tag-settings', state.settings); write('tag-cash', state.cash);
     write('tag-categories-v05', state.categories); write('tag-promotions-v05', state.promotions);
+    write('tag-staff-v09', state.staff); write('tag-central-v09', state.central);
   }
   function cartSubtotal(){ return state.cart.reduce((a,i)=>a + Number(i.price||0)*Number(i.qty||0),0); }
   function cartTotal(){ return Math.max(0, cartSubtotal() - Number(state.discount||0) + Number(state.surcharge||0)); }
@@ -147,7 +191,42 @@
   }
 
 
+  function currentStaff(){
+    const selected=state.staff.find(member=>member.id===state.settings.currentStaffId && member.active!==false);
+    return selected || state.staff.find(member=>member.role==='owner' && member.active!==false) || state.staff.find(member=>member.active!==false) || null;
+  }
+  function canAccess(permission){
+    const member=currentStaff();
+    if(!member) return true;
+    if(member.role==='owner') return true;
+    return member.active!==false && member.permissions?.[permission]===true;
+  }
+  const ROUTE_PERMISSION = {
+    pos:'sell', customers:'customers', products:'products', stock:'stock',
+    promotions:'promotions', history:'reports', reports:'reports',
+    cash:'cash', staff:'staff', settings:'settings'
+  };
+  function applyAccessVisibility(){
+    $$('[data-route]').forEach(button=>{
+      const permission=ROUTE_PERMISSION[button.dataset.route];
+      if(!permission) return;
+      button.hidden=!canAccess(permission);
+    });
+    const member=currentStaff();
+    if($('currentOperatorRole')) $('currentOperatorRole').textContent = member ? `${roleLabel(member.role)} · ${member.name}` : 'Operador';
+  }
+  function initials(name=''){
+    return String(name||'TA').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase() || 'TA';
+  }
+
+
+
   function navigate(route) {
+    const required=ROUTE_PERMISSION[route];
+    if(required && !canAccess(required)){
+      alert('Este operador não tem permissão para abrir esta área.');
+      return;
+    }
     $$('.view').forEach(v => v.classList.toggle('active', v.dataset.view === route));
     $$('.side-route').forEach(b => b.classList.toggle('active', b.dataset.route === route));
     if(route==='pos') renderPos();
@@ -158,6 +237,7 @@
     if(route==='history') renderHistory();
     if(route==='reports') renderReports();
     if(route==='cash') renderCash();
+    if(route==='staff') renderStaff();
     if(route==='settings') renderSettings();
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -171,6 +251,7 @@
     $('sideOrders').textContent = String(sales.length);
     $('openSaleBadge').textContent = String(state.openSales.length);
     $('storeName').textContent = state.settings.storeName || 'Minha Loja';
+    applyAccessVisibility();
   }
 
   function renderPos(){
@@ -335,7 +416,8 @@
       customer.debt=Number(customer.debt||0)+total; state.selectedCustomerId=customer.id;
     }
     state.cart.forEach(i=>{if(i.loose)return;const p=state.products.find(p=>p.id===i.productId);if(p)p.stock=Math.max(0,Number(p.stock||0)-Number(i.qty||0));});
-    const sale={id:uid(),saleId:state.saleId,createdAt:new Date().toISOString(),startedAt:state.saleStartedAt.toISOString(),items:structuredClone(state.cart),subtotal:cartSubtotal(),discount:Number(state.discount||0),surcharge:Number(state.surcharge||0),total:cartTotal(),payment:state.payment,cashReceived,cashChange,customerId:customer?.id||null,dueDate:$('checkoutDueDate').value||null,note:$('checkoutNote').value.trim()};
+    const operator=currentStaff();
+    const sale={id:uid(),saleId:state.saleId,createdAt:new Date().toISOString(),startedAt:state.saleStartedAt.toISOString(),items:structuredClone(state.cart),subtotal:cartSubtotal(),discount:Number(state.discount||0),surcharge:Number(state.surcharge||0),total:cartTotal(),payment:state.payment,cashReceived,cashChange,customerId:customer?.id||null,dueDate:$('checkoutDueDate').value||null,note:$('checkoutNote').value.trim(),operatorId:operator?.id||null,operatorName:operator?.name||state.settings.operator||'Operador'};
     state.sales.push(sale);persist();const total=sale.total;const cashMessage=sale.payment==='dinheiro'?`\nRecebido: ${money(sale.cashReceived)}\nTroco: ${money(sale.cashChange)}`:'';clearSale(false);renderSidebar();alert(`Venda concluída: ${money(total)}${cashMessage}`);
   }
 
@@ -552,7 +634,201 @@
   function renderCash(){
     $('cashStatus').textContent=state.cash.open?`Caixa aberto desde ${new Date(state.cash.openedAt).toLocaleString('pt-BR')}`:'Caixa fechado';$('cashOpening').value=Number(state.cash.opening||0);const total=salesToday().filter(s=>s.payment!=='ficha').reduce((a,s)=>a+Number(s.total||0),0);$('cashSummary').innerHTML=`<p>Valor inicial: <b>${money(state.cash.opening||0)}</b></p><p>Recebimentos de vendas hoje: <b>${money(total)}</b></p><p>Total estimado em caixa: <b>${money(Number(state.cash.opening||0)+total)}</b></p>`;
   }
-  function renderSettings(){$('settingsStoreName').value=state.settings.storeName||'';$('settingsOperator').value=state.settings.operator||'';}
+  function renderStaffPermissions(selected={}){
+    if(!$('staffPermissions')) return;
+    $('staffPermissions').innerHTML=ACCESS_PERMISSIONS.map(([key,label,description])=>`<label class="permission-option"><div><b>${esc(label)}</b><small>${esc(description)}</small></div><input type="checkbox" data-staff-permission="${key}" ${selected?.[key]?'checked':''}></label>`).join('');
+  }
+
+  function openStaffDialog(member=null){
+    const item=member||{id:'',name:'',email:'',whatsapp:'',role:'editor',active:true,permissions:rolePermissions('editor')};
+    $('staffDialogTitle').textContent=member?'Editar funcionário':'Novo funcionário';
+    $('staffId').value=item.id||'';
+    $('staffName').value=item.name||'';
+    $('staffEmail').value=item.email||'';
+    $('staffWhatsapp').value=item.whatsapp||'';
+    $('staffRole').value=item.role||'editor';
+    $('staffActive').checked=item.active!==false;
+    renderStaffPermissions({...rolePermissions(item.role||'editor'),...(item.permissions||{})});
+    $('staffDialog').showModal();
+  }
+
+  function staffPermissionsFromForm(){
+    return Object.fromEntries($$('#staffPermissions [data-staff-permission]').map(input=>[input.dataset.staffPermission,input.checked]));
+  }
+
+  async function saveStaffMember(){
+    const existingId=$('staffId').value;
+    const role=$('staffRole').value||'editor';
+    const member={
+      id:existingId||uid(),
+      name:$('staffName').value.trim(),
+      email:$('staffEmail').value.trim().toLowerCase(),
+      whatsapp:$('staffWhatsapp').value.trim(),
+      role,
+      active:$('staffActive').checked,
+      permissions:staffPermissionsFromForm(),
+      source:'local'
+    };
+    if(!member.name||!member.email){alert('Informe nome e e-mail do funcionário.');return false;}
+
+    if(window.GestaoBackend?.isConfigured?.() && state.centralSession && state.central.storeId){
+      try{
+        const result=await window.GestaoBackend.saveMember(state.central.storeId,member);
+        member.source='central';
+        if(result?.user_id) member.userId=result.user_id;
+        if(result?.pending) member.pending=true;
+      }catch(error){
+        console.error(error);
+        alert(`Não foi possível salvar no banco central: ${error.message||error}`);
+        return false;
+      }
+    }
+
+    const idx=state.staff.findIndex(item=>item.id===member.id || (member.email && item.email===member.email));
+    if(idx>=0) state.staff[idx]={...state.staff[idx],...member}; else state.staff.push(member);
+    persist();renderStaff();renderSettings();applyAccessVisibility();
+    return true;
+  }
+
+  function rolePermissionNames(member){
+    return ACCESS_PERMISSIONS.filter(([key])=>member.permissions?.[key]).map(([,label])=>label);
+  }
+
+  function renderStaff(){
+    const active=state.staff.filter(member=>member.active!==false).length;
+    const managers=state.staff.filter(member=>member.active!==false&&member.role==='manager').length;
+    const editors=state.staff.filter(member=>member.active!==false&&member.role==='editor').length;
+    const central=state.staff.filter(member=>member.source==='central').length;
+    $('staffSummary').innerHTML=`<article><span>Equipe ativa</span><strong>${active}</strong></article><article><span>Gerentes</span><strong>${managers}</strong></article><article><span>Funcionários</span><strong>${editors}</strong></article><article><span>No banco central</span><strong>${central}</strong></article>`;
+    $('staffList').innerHTML=state.staff.map(member=>{
+      const perms=rolePermissionNames(member);
+      return `<article class="staff-card"><div><div class="staff-person"><div class="staff-avatar">${esc(initials(member.name))}</div><div><h3>${esc(member.name||'Funcionário')}</h3><p>${esc(member.email||'Sem e-mail')}${member.whatsapp?` · ${esc(member.whatsapp)}`:''}</p><div class="staff-badges"><span class="staff-role-badge">${roleLabel(member.role)}</span><span class="staff-status-badge ${member.active!==false?'active':'inactive'}">${member.active!==false?'Ativo':'Desativado'}</span>${member.source==='central'?'<span class="staff-cloud-badge">Banco central</span>':''}${member.pending?'<span class="staff-cloud-badge">Convite pendente</span>':''}</div></div></div><div class="staff-permission-mini">${perms.slice(0,8).map(label=>`<span>${esc(label)}</span>`).join('')}${perms.length>8?`<span>+${perms.length-8}</span>`:''}</div></div><div class="staff-actions"><button data-edit-staff="${member.id}">Editar acesso</button>${member.role!=='owner'?`<button class="${member.active!==false?'danger-button':''}" data-toggle-staff="${member.id}">${member.active!==false?'Desativar':'Ativar'}</button>`:''}</div></article>`;
+    }).join('')||'<div class="data-card empty-state">Nenhum funcionário cadastrado.</div>';
+  }
+
+  async function refreshCentralStaff(){
+    if(!window.GestaoBackend?.isConfigured?.() || !state.centralSession || !state.central.storeId){
+      renderStaff(); return;
+    }
+    try{
+      const rows=await window.GestaoBackend.listMembers(state.central.storeId);
+      const currentLocalByEmail=new Map(state.staff.map(member=>[String(member.email||'').toLowerCase(),member]));
+      rows.forEach(row=>{
+        const email=String(row.email||'').toLowerCase();
+        const old=currentLocalByEmail.get(email);
+        const role=row.member_role||'editor';
+        const member={
+          id:old?.id || String(row.user_id||uid()),
+          userId:row.user_id||null,
+          name:row.full_name||row.display_name||old?.name||email.split('@')[0]||'Funcionário',
+          email,
+          whatsapp:row.whatsapp||old?.whatsapp||'',
+          role,
+          active:row.active!==false,
+          permissions:{...rolePermissions(role),...(row.permissions||{})},
+          source:'central',
+          pending:false
+        };
+        const idx=state.staff.findIndex(item=>(member.userId&&item.userId===member.userId)||(email&&item.email===email));
+        if(idx>=0) state.staff[idx]={...state.staff[idx],...member}; else state.staff.push(member);
+      });
+      persist();renderStaff();renderSettings();
+    }catch(error){
+      console.error(error);
+      alert(`Não foi possível atualizar a equipe: ${error.message||error}`);
+    }
+  }
+
+  function renderCentralStatus(message='',kind=''){
+    const configured=window.GestaoBackend?.isConfigured?.()||false;
+    const logged=Boolean(state.centralSession);
+    const dot=$('centralDot'), mode=$('centralMode');
+    if(dot){dot.classList.toggle('online',logged);dot.classList.toggle('error',kind==='error');}
+    if(mode){mode.textContent=logged?'CENTRAL':configured?'PRONTO':'LOCAL';mode.classList.toggle('online',logged);}
+    if($('centralStatus')) $('centralStatus').textContent=message || (logged?`Conectado${state.central.lastSync?` · última sincronização ${new Date(state.central.lastSync).toLocaleString('pt-BR')}`:''}`:configured?'Configuração encontrada. Faça login.':'Ainda não conectado.');
+    if($('centralLoginButton')) $('centralLoginButton').hidden=logged;
+    if($('centralLogoutButton')) $('centralLogoutButton').hidden=!logged;
+  }
+
+  function renderSettings(){
+    $('settingsStoreName').value=state.settings.storeName||'';
+    $('settingsOperator').value=state.settings.operator||'';
+    const activeStaff=state.staff.filter(member=>member.active!==false);
+    $('settingsOperatorSelect').innerHTML=activeStaff.map(member=>`<option value="${esc(member.id)}" ${member.id===state.settings.currentStaffId?'selected':''}>${esc(member.name)} — ${roleLabel(member.role)}</option>`).join('');
+    if(!state.settings.currentStaffId && activeStaff[0]) state.settings.currentStaffId=activeStaff[0].id;
+    const stores=state.centralStores||[];
+    $('centralStoreSelect').innerHTML=stores.length?stores.map(store=>`<option value="${esc(store.id)}" ${String(store.id)===String(state.central.storeId)?'selected':''}>${esc(store.name||store.store_name||'Loja')}</option>`).join(''):'<option value="">Nenhuma loja conectada</option>';
+    renderCentralStatus();
+  }
+
+  async function syncCentralDatabase(forceStoreId=''){
+    if(!window.GestaoBackend?.isConfigured?.()){
+      renderCentralStatus('Falta colocar a URL e a chave pública do Supabase em supabase-config.js.','error');
+      alert('O banco central ainda não está configurado neste repositório.');
+      return false;
+    }
+    try{
+      renderCentralStatus('Sincronizando...');
+      const preferred=forceStoreId||state.central.storeId||'';
+      const context=await window.GestaoBackend.context(preferred);
+      state.centralSession=context.session;
+      if(!context.session){
+        renderCentralStatus('Configuração encontrada. Faça login.');
+        $('centralLoginDialog').showModal();
+        return false;
+      }
+      state.centralStores=context.stores||[];
+      const store=context.store;
+      if(store){
+        state.central.storeId=String(store.id);
+        state.central.storeName=store.name||'Loja';
+        state.settings.storeName=store.name||state.settings.storeName;
+        if(context.products?.length){
+          state.products=context.products;
+          syncCategoryState();
+        }
+        const role=context.membership?.isOwner||context.membership?.isAdmin?'owner':(context.membership?.role||'editor');
+        const permissions={...rolePermissions(role),...(context.membership?.permissions||{})};
+        const centralUser=context.session.user;
+        const email=String(centralUser.email||'').toLowerCase();
+        let operator=state.staff.find(member=>member.userId===centralUser.id || (email&&member.email===email));
+        if(!operator){
+          operator={id:`central-${centralUser.id}`,userId:centralUser.id,name:centralUser.user_metadata?.full_name||centralUser.user_metadata?.name||email.split('@')[0]||'Operador',email,whatsapp:'',role,active:true,permissions,source:'central'};
+          state.staff.push(operator);
+        }else{
+          Object.assign(operator,{userId:centralUser.id,email,role,permissions,source:'central',active:true});
+        }
+        state.settings.currentStaffId=operator.id;
+        state.settings.operator=operator.name;
+      }
+      state.central.connected=true;
+      state.central.lastSync=new Date().toISOString();
+      persist();
+      renderSidebar();renderPos();renderManageProducts();renderStock();renderPromotions();renderSettings();
+      await refreshCentralStaff();
+      renderCentralStatus();
+      return true;
+    }catch(error){
+      console.error(error);
+      state.central.connected=false;
+      renderCentralStatus(`Erro: ${error.message||error}`,'error');
+      return false;
+    }
+  }
+
+  async function loginCentral(){
+    try{
+      await window.GestaoBackend.signIn($('centralEmail').value.trim(),$('centralPassword').value);
+      $('centralPassword').value='';
+      await syncCentralDatabase();
+      return true;
+    }catch(error){
+      console.error(error);
+      alert(`Não foi possível entrar: ${error.message||error}`);
+      return false;
+    }
+  }
+
 
   $$('.side-route').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.route)));
   $$('.catalog-tabs button').forEach(b=>b.addEventListener('click',()=>{state.catalogFilter=b.dataset.filter;$$('.catalog-tabs button').forEach(x=>x.classList.toggle('active',x===b));renderCatalog();}));
@@ -643,12 +919,39 @@
     if(del){const p=state.promotions.find(p=>p.id===del.dataset.deletePromotion);if(p&&confirm(`Excluir a promoção "${p.name}"?`)){state.promotions=state.promotions.filter(x=>x.id!==p.id);persist();renderPromotions();renderCatalog();renderStock();}}
   });
 
+  $('newStaffButton').addEventListener('click',()=>openStaffDialog());
+  $('openStaffFromSettings').addEventListener('click',()=>navigate('staff'));
+  $('staffRole').addEventListener('change',()=>renderStaffPermissions(rolePermissions($('staffRole').value)));
+  $('applyRolePermissions').addEventListener('click',()=>renderStaffPermissions(rolePermissions($('staffRole').value)));
+  $('saveStaffButton').addEventListener('click',async e=>{if(!$('staffForm').reportValidity()){e.preventDefault();return;}if(!(await saveStaffMember()))e.preventDefault();});
+  $('refreshStaffButton').addEventListener('click',refreshCentralStaff);
+  $('staffList').addEventListener('click',async e=>{
+    const edit=e.target.closest('[data-edit-staff]'),toggle=e.target.closest('[data-toggle-staff]');
+    if(edit){const member=state.staff.find(item=>item.id===edit.dataset.editStaff);if(member)openStaffDialog(member);return;}
+    if(toggle){
+      const member=state.staff.find(item=>item.id===toggle.dataset.toggleStaff);if(!member)return;
+      const next=member.active===false;
+      if(member.source==='central'&&member.userId&&window.GestaoBackend?.isConfigured?.()&&state.central.storeId){
+        try{await window.GestaoBackend.setMemberActive(state.central.storeId,member.userId,next);}catch(error){alert(`Não foi possível alterar o acesso: ${error.message||error}`);return;}
+      }
+      member.active=next;persist();renderStaff();renderSettings();applyAccessVisibility();
+    }
+  });
+
+  $('centralLoginButton').addEventListener('click',()=>$('centralLoginDialog').showModal());
+  $('centralLoginSubmit').addEventListener('click',async e=>{if(!$('centralLoginForm').reportValidity()){e.preventDefault();return;}if(!(await loginCentral()))e.preventDefault();});
+  $('centralSyncButton').addEventListener('click',()=>syncCentralDatabase());
+  $('centralLogoutButton').addEventListener('click',async()=>{await window.GestaoBackend?.signOut?.();state.centralSession=null;state.central.connected=false;state.centralStores=[];persist();renderSettings();renderCentralStatus('Sessão encerrada.');});
+  $('centralStoreSelect').addEventListener('change',e=>{if(e.target.value)syncCentralDatabase(e.target.value);});
+
   $('openCashButton').addEventListener('click',()=>{state.cash={open:true,opening:Number($('cashOpening').value||0),openedAt:new Date().toISOString()};persist();renderCash();});$('closeCashButton').addEventListener('click',()=>{state.cash={open:false,opening:0,openedAt:null};persist();renderCash();});
-  $('saveSettingsButton').addEventListener('click',()=>{state.settings={storeName:$('settingsStoreName').value.trim()||'Minha Loja',operator:$('settingsOperator').value.trim()||'Proprietário'};persist();renderSidebar();alert('Configurações salvas.');});
+  $('saveSettingsButton').addEventListener('click',()=>{state.settings={...state.settings,storeName:$('settingsStoreName').value.trim()||'Minha Loja',operator:$('settingsOperator').value.trim()||currentStaff()?.name||'Proprietário',currentStaffId:$('settingsOperatorSelect').value||state.settings.currentStaffId};persist();renderSidebar();renderSettings();alert('Configurações salvas.');});
+  $('settingsOperatorSelect').addEventListener('change',e=>{state.settings.currentStaffId=e.target.value;const member=currentStaff();if(member)state.settings.operator=member.name;persist();renderSidebar();applyAccessVisibility();});
 
   window.addEventListener('keydown',e=>{if(e.key==='F2'){e.preventDefault();navigate('pos');$('productSearch').focus();}if(e.key==='F3'){e.preventDefault();saveOpenSale();}if(e.key==='F4'){e.preventDefault();if(state.cart.length)$('checkoutPanel').scrollIntoView({behavior:'smooth'});}});
 
   if($('appVersionBadge')) $('appVersionBadge').textContent = `V${APP_VERSION}`;
-  syncCategoryState();renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderPromotions();renderHistory();renderReports();renderCash();renderSettings();
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.8.0').catch(()=>{});
+  syncCategoryState();renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderPromotions();renderHistory();renderReports();renderCash();renderStaff();renderSettings();applyAccessVisibility();
+  if(window.GestaoBackend?.isConfigured?.()){setTimeout(async()=>{try{const session=await window.GestaoBackend.getSession();if(session)await syncCentralDatabase();else renderCentralStatus('Banco configurado. Faça login para sincronizar.');}catch(error){console.warn('Banco central:',error);}},150);}
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.9.0').catch(()=>{});
 })();

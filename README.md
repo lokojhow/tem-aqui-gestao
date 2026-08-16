@@ -82,3 +82,20 @@ Nesta etapa os dados continuam salvos no navegador (`localStorage`). O próximo 
 - O editor para acima do menu inferior, evitando que o menu cubra os botões.
 - O botão **Cancelar** continua funcionando como retorno.
 - Versão visível atualizada para **V0.8.0**.
+
+
+## V0.9 — Funcionários, permissões e Banco Central
+
+- Nova área **Funcionários e Acessos**.
+- Papéis: Proprietário, Gerente e Funcionário.
+- Permissões individuais para PDV, produtos, estoque, clientes, ficha, promoções, relatórios, caixa, funcionários e configurações.
+- Ativar/desativar funcionário.
+- Cada venda passa a guardar o operador responsável.
+- Configuração de operador por aparelho no modo local.
+- Tela de login para o Banco Central.
+- Seletor de comércio para administrador/proprietário com mais de uma loja.
+- Sincronização preparada para carregar lojas e produtos do Supabase atual do Tem Aqui.
+- Mantém funcionamento local quando o banco ainda não está configurado.
+- Inclui `BANCO-CENTRAL-TEM-AQUI-GESTAO-V09.sql`.
+- Inclui guia `MIGRACAO-TEM-AQUI-PARA-GESTAO.md`.
+- Versão visível: **V0.9.0**.

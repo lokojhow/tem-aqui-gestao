@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b7a3d">
   <title>Tem Aqui Gestão</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=0.4.0">
+  <link rel="stylesheet" href="styles.css?v=0.5.0">
 </head>
 <body>
 <div class="app-shell">
@@ -22,7 +22,8 @@
       <button class="side-route" data-route="history"><span>▤</span> Histórico de Vendas</button>
       <button class="side-route" data-route="customers"><span>♙</span> Clientes / Ficha</button>
       <button class="side-route" data-route="products"><span>▧</span> Produtos</button>
-      <button class="side-route" data-route="stock"><span>▣</span> Estoque</button>
+      <button class="side-route" data-route="stock"><span>▣</span> Estoque / Categorias</button>
+      <button class="side-route" data-route="promotions"><span>🏷</span> Promoções</button>
       <button class="side-route" data-route="reports"><span>▥</span> Relatórios</button>
       <button class="side-route" data-route="cash"><span>▱</span> Caixa (Abertura/Fecho)</button>
       <button class="side-route" data-route="settings"><span>⚙</span> Configurações</button>
@@ -116,7 +117,35 @@
         <div class="management-grid"><article class="management-list"><div class="inline-search"><span>⌕</span><input id="manageProductSearch" placeholder="Buscar produto ou código"></div><div id="manageProductList"></div></article><article id="productEditor" class="editor-card"><div class="empty-state">Selecione um produto ou clique em Novo Produto.</div></article></div>
       </section>
 
-      <section class="view" data-view="stock"><div class="page-heading"><div><span>ESTOQUE</span><h1>Posição do estoque</h1></div></div><div id="stockTable" class="data-card"></div></section>
+      <section class="view" data-view="stock">
+        <div class="page-heading">
+          <div><span>ESTOQUE / CATEGORIAS</span><h1>Organização do estoque</h1></div>
+          <div class="heading-actions">
+            <button id="newCategoryButton" class="dark">＋ Categoria</button>
+            <button id="stockPromotionButton" class="green">🏷 Criar promoção</button>
+          </div>
+        </div>
+        <div class="stock-tools data-card">
+          <div class="stock-summary" id="stockSummary"></div>
+          <div class="category-manager">
+            <div class="category-manager-title">
+              <div><b>Categorias do estoque</b><small>Use as categorias para organizar e filtrar os produtos.</small></div>
+              <button id="showAllStockButton" class="category-pill active">Todos</button>
+            </div>
+            <div id="stockCategoryChips" class="category-chip-list"></div>
+          </div>
+        </div>
+        <div id="stockTable" class="data-card"></div>
+      </section>
+
+      <section class="view" data-view="promotions">
+        <div class="page-heading">
+          <div><span>PROMOÇÕES E DESCONTOS</span><h1>Campanhas de produtos</h1></div>
+          <button id="newPromotionButton" class="green">＋ Nova Promoção</button>
+        </div>
+        <div class="promotion-dashboard" id="promotionDashboard"></div>
+        <div id="promotionList" class="promotion-list"></div>
+      </section>
       <section class="view" data-view="history"><div class="page-heading"><div><span>HISTÓRICO</span><h1>Vendas realizadas</h1></div></div><div id="historyTable" class="data-card"></div></section>
       <section class="view" data-view="reports"><div class="page-heading"><div><span>RELATÓRIOS</span><h1>Resumo de vendas</h1></div></div><div id="reportsContent" class="report-grid"></div></section>
       <section class="view" data-view="cash"><div class="page-heading"><div><span>CAIXA</span><h1>Abertura e fechamento</h1></div></div><div class="data-card cash-card"><h2 id="cashStatus">Caixa fechado</h2><label>Valor inicial<input id="cashOpening" type="number" min="0" step="0.01" value="0"></label><div class="cash-actions"><button id="openCashButton" class="green">Abrir caixa</button><button id="closeCashButton" class="dark">Fechar caixa</button></div><div id="cashSummary"></div></div></section>
@@ -129,6 +158,59 @@
   <button data-route="pos" class="side-route active"><span>🛒</span>PDV</button><button data-route="customers" class="side-route"><span>♙</span>Clientes</button><button data-route="products" class="side-route"><span>▧</span>Produtos</button><button data-route="reports" class="side-route"><span>▥</span>Relatórios</button><button data-route="settings" class="side-route"><span>⚙</span>Ajustes</button>
 </div>
 
+
+
+<dialog id="categoryDialog">
+  <form method="dialog" id="categoryForm">
+    <h2 id="categoryDialogTitle">Nova categoria</h2>
+    <input type="hidden" id="categoryOriginalName">
+    <label>Nome da categoria<input id="categoryName" maxlength="60" required placeholder="Ex.: Carnes Bovinas"></label>
+    <div class="dialog-actions">
+      <button value="cancel">Cancelar</button>
+      <button value="default" id="saveCategoryButton" class="green">Salvar categoria</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="promotionDialog" class="promotion-dialog">
+  <form method="dialog" id="promotionForm">
+    <h2>Configurar promoção</h2>
+    <input type="hidden" id="promotionId">
+    <div class="promotion-form-grid">
+      <label>Nome da promoção
+        <input id="promotionName" required maxlength="80" placeholder="Ex.: Oferta do fim de semana">
+      </label>
+      <label>Desconto (%)
+        <input id="promotionPercent" type="number" min="0.01" max="99.99" step="0.01" required value="10">
+      </label>
+      <label>Início
+        <input id="promotionStart" type="datetime-local" required>
+      </label>
+      <label>Término
+        <input id="promotionEnd" type="datetime-local" required>
+      </label>
+    </div>
+    <label class="toggle-line promotion-publish">
+      <span><b>Publicar no Tem Aqui</b><small>Marca a promoção para sincronização com o aplicativo público quando a integração estiver conectada.</small></span>
+      <input id="promotionPublish" type="checkbox">
+    </label>
+    <div class="promotion-product-toolbar">
+      <div>
+        <b>Produtos da promoção</b>
+        <small>Selecione um ou vários produtos.</small>
+      </div>
+      <select id="promotionCategoryFilter"><option value="">Todas as categorias</option></select>
+      <button type="button" id="selectVisiblePromotionProducts" class="dark">Selecionar visíveis</button>
+      <button type="button" id="clearPromotionProducts" class="light-button">Limpar</button>
+    </div>
+    <div id="promotionProductPicker" class="promotion-product-picker"></div>
+    <div class="promotion-preview" id="promotionPreview"></div>
+    <div class="dialog-actions">
+      <button value="cancel">Cancelar</button>
+      <button value="default" id="savePromotionButton" class="green">Salvar promoção</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="quantityDialog">
   <form method="dialog" id="quantityForm">
@@ -159,6 +241,6 @@
 
 <dialog id="paymentDialog"><form method="dialog" id="paymentForm"><h2>Receber pagamento</h2><p id="paymentCustomerName"></p><label>Valor recebido<input id="paymentAmount" type="number" min="0.01" step="0.01" required></label><label>Observação<input id="paymentNote" placeholder="Ex.: Pix recebido"></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="savePaymentButton" class="green">Confirmar pagamento</button></div></form></dialog>
 
-<script src="app.js?v=0.4.0"></script>
+<script src="app.js?v=0.5.0"></script>
 </body>
 </html>

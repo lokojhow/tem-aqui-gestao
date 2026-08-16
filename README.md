@@ -37,3 +37,23 @@ Nesta etapa os dados continuam salvos no navegador (`localStorage`). O próximo 
 - Produtos por unidade continuam inteiros.
 - O valor do item é calculado automaticamente pelo peso.
 - O estoque é validado antes de adicionar e antes de finalizar.
+
+
+## V0.5 — promoções, descontos e categorias de estoque
+- Nova área **Promoções**.
+- Criação de promoção com nome, percentual de desconto, início e término.
+- Seleção de um ou vários produtos.
+- Filtro de produtos por categoria durante a criação da promoção.
+- Promoções podem ser agendadas, pausadas, editadas ou excluídas.
+- Preço promocional entra automaticamente no PDV durante o período ativo.
+- Ao vencer o período, o produto volta automaticamente ao preço normal.
+- Estoque mostra preço normal, preço atual e promoção ativa.
+- Opção **Publicar no Tem Aqui** fica salva para futura sincronização com o aplicativo público.
+- Nova gestão de **Categorias do estoque**.
+- Criação e renomeação de categorias.
+- Produtos usam seleção de categoria no cadastro.
+- Filtro de estoque por categoria.
+- Resumo de quantidade de produtos, estoque baixo, custo e valor estimado.
+- Mantidos cálculo de troco da V0.3 e quantidades por peso/volume da V0.4.
+
+> Nesta etapa, promoções e categorias continuam salvas localmente no navegador. A sincronização real entre vários aparelhos e com o Tem Aqui público será feita quando conectarmos o banco do Tem Aqui Gestão.

@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const APP_VERSION = '0.6.0';
   const $ = (id) => document.getElementById(id);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
   const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -583,6 +584,6 @@
 
   window.addEventListener('keydown',e=>{if(e.key==='F2'){e.preventDefault();navigate('pos');$('productSearch').focus();}if(e.key==='F3'){e.preventDefault();saveOpenSale();}if(e.key==='F4'){e.preventDefault();if(state.cart.length)$('checkoutPanel').scrollIntoView({behavior:'smooth'});}});
 
-  syncCategoryState();renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderPromotions();renderHistory();renderReports();renderCash();renderSettings();
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.5.0').catch(()=>{});
+  $$('.app-version-text').forEach(el=>el.textContent=`v${APP_VERSION}`);const versionBadge=document.querySelector('.app-version-fixed');if(versionBadge)versionBadge.textContent=`v${APP_VERSION}`;  syncCategoryState();renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderPromotions();renderHistory();renderReports();renderCash();renderSettings();
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.6.0').catch(()=>{});
 })();

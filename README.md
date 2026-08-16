@@ -57,3 +57,10 @@ Nesta etapa os dados continuam salvos no navegador (`localStorage`). O próximo 
 - Mantidos cálculo de troco da V0.3 e quantidades por peso/volume da V0.4.
 
 > Nesta etapa, promoções e categorias continuam salvas localmente no navegador. A sincronização real entre vários aparelhos e com o Tem Aqui público será feita quando conectarmos o banco do Tem Aqui Gestão.
+
+
+## V0.6 — versão visível
+- A versão do sistema agora aparece sempre na tela como **v0.6.0**.
+- No computador, também aparece junto ao nome “PDV Tem Aqui”.
+- No celular, o selo de versão fica acima da navegação inferior.
+- CSS, JavaScript e Service Worker receberam nova versão de cache para facilitar a confirmação das atualizações.

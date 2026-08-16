@@ -4,20 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b7a3d">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <title>Tem Aqui Gestão</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=0.6.0">
+  <link rel="stylesheet" href="styles.css?v=0.7.0">
 </head>
 <body>
-<div class="app-version-fixed" title="Versão carregada do sistema">v0.6.0</div>
+<div class="app-version-badge" id="appVersionBadge" title="Versão instalada">V0.7.0</div>
 <div class="app-shell">
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-mark">🛒</div>
-      <div><strong>PDV Tem Aqui</strong><small>Venda rápida e completa · <b class="app-version-text">v0.6.0</b></small></div>
+      <div><strong>PDV Tem Aqui</strong><small>Venda rápida e completa</small></div>
     </div>
 
     <button class="new-sale side-route active" data-route="pos"><span>🛒</span> NOVA VENDA</button>
@@ -117,8 +114,27 @@
       </section>
 
       <section class="view" data-view="products">
-        <div class="page-heading"><div><span>PRODUTOS</span><h1>Cadastro de produtos</h1></div><button id="newProductButton" class="green">＋ Novo Produto</button></div>
-        <div class="management-grid"><article class="management-list"><div class="inline-search"><span>⌕</span><input id="manageProductSearch" placeholder="Buscar produto ou código"></div><div id="manageProductList"></div></article><article id="productEditor" class="editor-card"><div class="empty-state">Selecione um produto ou clique em Novo Produto.</div></article></div>
+        <div class="page-heading">
+          <div><span>PRODUTOS</span><h1>Cadastro de produtos</h1></div>
+          <div class="heading-actions">
+            <button id="productsCategoryButton" class="dark">＋ Categoria</button>
+            <button id="newProductButton" class="green">＋ Novo Produto</button>
+          </div>
+        </div>
+        <article class="product-category-panel">
+          <div class="product-category-title">
+            <div><b>Produtos por categoria</b><small>Escolha uma categoria para filtrar a lista.</small></div>
+            <button id="manageProductsAllCategory" class="category-pill active">Todos</button>
+          </div>
+          <div id="manageProductCategoryChips" class="category-chip-list"></div>
+        </article>
+        <div class="management-grid">
+          <article class="management-list">
+            <div class="inline-search"><span>⌕</span><input id="manageProductSearch" placeholder="Buscar produto ou código"></div>
+            <div id="manageProductList"></div>
+          </article>
+          <article id="productEditor" class="editor-card"><div class="empty-state">Selecione um produto ou clique em Novo Produto.</div></article>
+        </div>
       </section>
 
       <section class="view" data-view="stock">
@@ -245,6 +261,6 @@
 
 <dialog id="paymentDialog"><form method="dialog" id="paymentForm"><h2>Receber pagamento</h2><p id="paymentCustomerName"></p><label>Valor recebido<input id="paymentAmount" type="number" min="0.01" step="0.01" required></label><label>Observação<input id="paymentNote" placeholder="Ex.: Pix recebido"></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="savePaymentButton" class="green">Confirmar pagamento</button></div></form></dialog>
 
-<script src="app.js?v=0.6.0"></script>
+<script src="app.js?v=0.7.0"></script>
 </body>
 </html>

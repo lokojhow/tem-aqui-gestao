@@ -60,7 +60,17 @@ Nesta etapa os dados continuam salvos no navegador (`localStorage`). O próximo 
 
 
 ## V0.6 — versão visível
-- A versão do sistema agora aparece sempre na tela como **v0.6.0**.
-- No computador, também aparece junto ao nome “PDV Tem Aqui”.
-- No celular, o selo de versão fica acima da navegação inferior.
-- CSS, JavaScript e Service Worker receberam nova versão de cache para facilitar a confirmação das atualizações.
+- Exibe `V0.6.0` permanentemente no canto superior direito.
+- Assim fica fácil confirmar se a atualização realmente chegou ao aparelho.
+- Cache do Service Worker e parâmetros de CSS/JS foram atualizados para V0.6.0.
+
+
+## V0.7 — Produtos por categoria e edição no celular
+- A tela Produtos agora mostra categorias com contagem de produtos.
+- A lista fica agrupada por categoria quando “Todos” está selecionado.
+- É possível tocar em uma categoria para ver somente os produtos dela.
+- Cada produto agora tem botão **Editar** visível.
+- No celular, o editor abre em tela cheia para não ficar escondido abaixo da lista.
+- A categoria aparece em cada linha de produto.
+- Botão **+ Categoria** também aparece diretamente na tela Produtos.
+- Versão visível atualizada para **V0.7.0**.

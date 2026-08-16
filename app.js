@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const APP_VERSION = '0.6.0';
+  const APP_VERSION = '0.7.0';
   const $ = (id) => document.getElementById(id);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
   const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -78,6 +78,7 @@
     selectedManageProductId: '',
     selectedCustomerDetailId: '',
     catalogFilter: 'all',
+    manageProductCategoryFilter: '',
     stockCategoryFilter: '',
     promotions,
     categories,
@@ -361,19 +362,63 @@
   function openPayment(c){$('paymentCustomerName').textContent=`${c.name} — saldo ${money(c.debt||0)}`;$('paymentAmount').value='';$('paymentNote').value='';$('paymentDialog').dataset.customerId=c.id;$('paymentDialog').showModal();}
   function savePayment(){const c=state.customers.find(c=>c.id===$('paymentDialog').dataset.customerId);if(!c)return;const amount=Number($('paymentAmount').value||0);if(amount<=0)return;if(amount>Number(c.debt||0) && !confirm('O valor é maior que o saldo em aberto. Continuar?'))return;c.debt=Math.max(0,Number(c.debt||0)-amount);state.payments.push({id:uid(),customerId:c.id,amount,createdAt:new Date().toISOString(),note:$('paymentNote').value.trim()});persist();renderCustomers();renderSidebar();}
 
+  function renderManageProductCategories(){
+    syncCategoryState();
+    const selected=state.manageProductCategoryFilter || '';
+    $('manageProductsAllCategory')?.classList.toggle('active',!selected);
+    if(!$('manageProductCategoryChips')) return;
+    $('manageProductCategoryChips').innerHTML=state.categories.map(c=>{
+      const count=state.products.filter(p=>(p.category||'Outros')===c).length;
+      return `<button class="category-pill ${selected===c?'active':''}" data-manage-category="${esc(c)}">${esc(c)} (${count})</button>`;
+    }).join('');
+  }
+
   function renderManageProducts(){
-    const term=String($('manageProductSearch')?.value||'').toLowerCase();const list=state.products.filter(p=>`${p.name} ${p.barcode||''}`.toLowerCase().includes(term));
-    $('manageProductList').innerHTML=list.map(p=>`<div class="manage-product-row ${p.id===state.selectedManageProductId?'active':''}" data-manage-product="${p.id}"><div class="product-visual" style="width:42px;height:42px;font-size:27px">${iconForProduct(p)}</div><div><b>${esc(p.name)}</b><small>${esc(p.barcode||'Sem código')} · ${money(p.price)}</small></div><strong>${Number(p.stock||0).toLocaleString('pt-BR')} ${esc(p.unit||'un.')}</strong></div>`).join('')||'<div class="empty-state">Nenhum produto.</div>';
+    renderManageProductCategories();
+    const term=String($('manageProductSearch')?.value||'').toLowerCase().trim();
+    const selectedCategory=state.manageProductCategoryFilter || '';
+    let list=state.products.filter(p=>`${p.name} ${p.barcode||''} ${p.sku||''} ${p.category||''}`.toLowerCase().includes(term));
+    if(selectedCategory) list=list.filter(p=>(p.category||'Outros')===selectedCategory);
+
+    const renderRow=(p)=>`<div class="manage-product-row ${p.id===state.selectedManageProductId?'active':''}" data-manage-product="${p.id}">
+      <div class="product-visual" style="width:42px;height:42px;font-size:27px">${iconForProduct(p)}</div>
+      <div class="manage-product-main">
+        <b>${esc(p.name)}</b>
+        <small><span class="manage-category-name">${esc(p.category||'Outros')}</span> · ${esc(p.barcode||'Sem código')} · ${money(p.price)}</small>
+      </div>
+      <strong>${formatQty(p.stock,p.unit)} ${esc(p.unit||'un.')}</strong>
+      <button type="button" class="manage-edit-button" data-edit-manage-product="${p.id}">Editar</button>
+    </div>`;
+
+    if(!list.length){
+      $('manageProductList').innerHTML='<div class="empty-state">Nenhum produto encontrado nesta categoria.</div>';
+    }else if(selectedCategory){
+      $('manageProductList').innerHTML=`<div class="manage-category-heading">${esc(selectedCategory)} <span>${list.length}</span></div>${list.map(renderRow).join('')}`;
+    }else{
+      const groups=[...new Set(list.map(p=>p.category||'Outros'))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+      $('manageProductList').innerHTML=groups.map(category=>{
+        const items=list.filter(p=>(p.category||'Outros')===category);
+        return `<div class="manage-category-heading">${esc(category)} <span>${items.length}</span></div>${items.map(renderRow).join('')}`;
+      }).join('');
+    }
     renderProductEditor();
   }
+
   function renderProductEditor(newMode=false){
-    const p=newMode?{id:'',name:'',barcode:'',sku:'',category:'Outros',price:0,cost:0,stock:0,unit:'un.',showcase:false,active:true,icon:'📦'}:state.products.find(p=>p.id===state.selectedManageProductId);
-    if(!p){$('productEditor').innerHTML='<div class="empty-state">Selecione um produto ou clique em Novo Produto.</div>';return;}
+    const p=newMode?{id:'',name:'',barcode:'',sku:'',category:state.manageProductCategoryFilter||'Outros',price:0,cost:0,stock:0,unit:'un.',showcase:false,active:true,icon:'📦'}:state.products.find(p=>p.id===state.selectedManageProductId);
+    if(!p){
+      $('productEditor').classList.remove('mobile-open');
+      $('productEditor').innerHTML='<div class="empty-state">Selecione um produto ou clique em Novo Produto.</div>';
+      return;
+    }
     syncCategoryState();
     const promo=activePromotionForProduct(p);
     const categoryOptions=state.categories.map(c=>`<option value="${esc(c)}" ${c===(p.category||'Outros')?'selected':''}>${esc(c)}</option>`).join('');
     $('productEditor').innerHTML=`<div class="editor-title"><div class="product-visual">${iconForProduct(p)}</div><div><h2>${esc(p.name||'Novo produto')}</h2><small>${esc(p.unit||'un.')} · ${p.active!==false?'Ativo':'Inativo'}${promo?` · Promoção ${Number(promo.discountPercent||0).toLocaleString('pt-BR')}%`:''}</small></div></div><form id="editorForm" class="editor-form"><input type="hidden" id="editProductId" value="${esc(p.id)}"><label>Nome<input id="editProductName" value="${esc(p.name)}" required></label><label>Categoria<select id="editProductCategory">${categoryOptions}</select></label><label>Código de Barras (EAN/GTIN)<input id="editProductBarcode" value="${esc(p.barcode||'')}"></label><label>Código Interno (SKU)<input id="editProductSku" value="${esc(p.sku||'')}"></label><label>Preço de Venda (R$)<input id="editProductPrice" type="number" min="0" step="0.01" value="${Number(p.price||0)}"></label><label>Custo (R$)<input id="editProductCost" type="number" min="0" step="0.01" value="${Number(p.cost||0)}"></label><label>Estoque Atual<input id="editProductStock" type="number" min="0" step="0.001" value="${Number(p.stock||0)}"></label><label>Unidade<select id="editProductUnit"><option ${p.unit==='un.'?'selected':''}>un.</option><option ${p.unit==='kg'?'selected':''}>kg</option><option ${p.unit==='g'?'selected':''}>g</option><option ${p.unit==='L'?'selected':''}>L</option></select></label><label class="toggle-line wide"><span>Mostrar no Tem Aqui</span><input id="editProductShowcase" type="checkbox" ${p.showcase?'checked':''}></label><label class="toggle-line wide"><span>Produto ativo</span><input id="editProductActive" type="checkbox" ${p.active!==false?'checked':''}></label>${promo?`<div class="wide promotion-preview"><b>Promoção ativa:</b> ${esc(promo.name)} · ${Number(promo.discountPercent||0).toLocaleString('pt-BR')}% · preço atual ${money(productSalePrice(p))}</div>`:''}<div class="editor-actions"><button type="button" class="dark" id="cancelProductEdit">Cancelar</button><button class="green" type="submit">Salvar Alterações</button></div></form>`;
-    $('editorForm').addEventListener('submit',e=>{e.preventDefault();saveManagedProduct();});$('cancelProductEdit').addEventListener('click',()=>{state.selectedManageProductId='';renderManageProducts();});
+    if(window.matchMedia('(max-width:900px)').matches) $('productEditor').classList.add('mobile-open');
+    else $('productEditor').classList.remove('mobile-open');
+    $('editorForm').addEventListener('submit',e=>{e.preventDefault();saveManagedProduct();});
+    $('cancelProductEdit').addEventListener('click',()=>{state.selectedManageProductId='';$('productEditor').classList.remove('mobile-open');renderManageProducts();});
   }
   function saveManagedProduct(){
     const id=$('editProductId').value||uid();const prev=state.products.find(p=>p.id===id);const obj={id,name:$('editProductName').value.trim(),category:$('editProductCategory').value.trim()||'Outros',barcode:$('editProductBarcode').value.trim(),sku:$('editProductSku').value.trim(),price:Number($('editProductPrice').value||0),cost:Number($('editProductCost').value||0),stock:Number($('editProductStock').value||0),unit:$('editProductUnit').value,showcase:$('editProductShowcase').checked,active:$('editProductActive').checked,icon:prev?.icon||'📦'};const idx=state.products.findIndex(p=>p.id===id);if(idx>=0)state.products[idx]=obj;else state.products.push(obj);state.selectedManageProductId=id;syncCategoryState();persist();renderManageProducts();renderCategories();renderCatalog();renderSidebar();
@@ -419,7 +464,7 @@
     }else if(!state.categories.includes(name)){
       state.categories.push(name);
     }
-    syncCategoryState();persist();renderStock();renderCategories();renderManageProducts();renderCatalog();
+    syncCategoryState();persist();renderStock();renderCategories();renderManageProducts();renderManageProductCategories();renderCatalog();
     return true;
   }
 
@@ -553,7 +598,24 @@
   $('newCustomerButton').addEventListener('click',()=>openCustomerDialog());$('customerSearch').addEventListener('input',renderCustomers);$('customerList').addEventListener('click',e=>{const r=e.target.closest('[data-customer-id]');if(r){state.selectedCustomerDetailId=r.dataset.customerId;renderCustomers();}});$('customerDetail').addEventListener('click',e=>{const pay=e.target.closest('[data-receive-payment]'),sale=e.target.closest('[data-sale-to-customer]');if(pay){const c=state.customers.find(c=>c.id===pay.dataset.receivePayment);if(c)openPayment(c);}if(sale){state.selectedCustomerId=sale.dataset.saleToCustomer;choosePayment('ficha');renderCheckoutCustomers();navigate('pos');setTimeout(()=>$('checkoutPanel').scrollIntoView({behavior:'smooth'}),100);}});
   $('saveCustomerButton').addEventListener('click',e=>{if(!$('customerForm').reportValidity()){e.preventDefault();return;}saveCustomer();});$('savePaymentButton').addEventListener('click',e=>{if(!$('paymentForm').reportValidity()){e.preventDefault();return;}savePayment();});
 
-  $('manageProductSearch').addEventListener('input',renderManageProducts);$('manageProductList').addEventListener('click',e=>{const r=e.target.closest('[data-manage-product]');if(r){state.selectedManageProductId=r.dataset.manageProduct;renderManageProducts();}});$('newProductButton').addEventListener('click',()=>renderProductEditor(true));
+  $('manageProductSearch').addEventListener('input',renderManageProducts);
+  $('manageProductList').addEventListener('click',e=>{
+    const edit=e.target.closest('[data-edit-manage-product]');
+    const row=e.target.closest('[data-manage-product]');
+    const id=edit?.dataset.editManageProduct || row?.dataset.manageProduct;
+    if(!id)return;
+    state.selectedManageProductId=id;
+    renderManageProducts();
+  });
+  $('manageProductsAllCategory').addEventListener('click',()=>{state.manageProductCategoryFilter='';renderManageProducts();});
+  $('manageProductCategoryChips').addEventListener('click',e=>{
+    const b=e.target.closest('[data-manage-category]');
+    if(!b)return;
+    state.manageProductCategoryFilter=b.dataset.manageCategory;
+    renderManageProducts();
+  });
+  $('productsCategoryButton').addEventListener('click',()=>openCategoryDialog());
+  $('newProductButton').addEventListener('click',()=>renderProductEditor(true));
 
   $('newCategoryButton').addEventListener('click',()=>openCategoryDialog());
   $('saveCategoryButton').addEventListener('click',e=>{if(!$('categoryForm').reportValidity()||!saveCategory())e.preventDefault();});
@@ -584,6 +646,7 @@
 
   window.addEventListener('keydown',e=>{if(e.key==='F2'){e.preventDefault();navigate('pos');$('productSearch').focus();}if(e.key==='F3'){e.preventDefault();saveOpenSale();}if(e.key==='F4'){e.preventDefault();if(state.cart.length)$('checkoutPanel').scrollIntoView({behavior:'smooth'});}});
 
-  $$('.app-version-text').forEach(el=>el.textContent=`v${APP_VERSION}`);const versionBadge=document.querySelector('.app-version-fixed');if(versionBadge)versionBadge.textContent=`v${APP_VERSION}`;  syncCategoryState();renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderPromotions();renderHistory();renderReports();renderCash();renderSettings();
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.6.0').catch(()=>{});
+  if($('appVersionBadge')) $('appVersionBadge').textContent = `V${APP_VERSION}`;
+  syncCategoryState();renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderPromotions();renderHistory();renderReports();renderCash();renderSettings();
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.7.0').catch(()=>{});
 })();

@@ -74,3 +74,11 @@ Nesta etapa os dados continuam salvos no navegador (`localStorage`). O próximo 
 - A categoria aparece em cada linha de produto.
 - Botão **+ Categoria** também aparece diretamente na tela Produtos.
 - Versão visível atualizada para **V0.7.0**.
+
+
+## V0.8 — voltar e menu inferior fixo
+- Novo botão **← Voltar** no editor de produto.
+- O menu inferior continua visível enquanto o editor está aberto no celular.
+- O editor para acima do menu inferior, evitando que o menu cubra os botões.
+- O botão **Cancelar** continua funcionando como retorno.
+- Versão visível atualizada para **V0.8.0**.

@@ -273,3 +273,61 @@ main{padding:8px}.view{display:none}.view.active{display:block}.sale-panel,.chec
     align-items:flex-start;
   }
 }
+
+
+/* V0.8 - botão voltar e menu inferior sempre fixo */
+.editor-back-button{
+  border:1px solid #cfd9de;
+  background:#fff;
+  color:#18252d;
+  border-radius:6px;
+  padding:8px 11px;
+  font-size:10px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.editor-back-button:hover{background:#f5f8f9}
+
+@media(max-width:820px){
+  .mobile-bottom-nav{
+    display:grid !important;
+    position:fixed !important;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:10050 !important;
+  }
+
+  #productEditor.mobile-open{
+    inset:0 0 66px 0 !important;
+    z-index:10020 !important;
+    padding-bottom:24px !important;
+  }
+
+  #productEditor.mobile-open .editor-title{
+    top:0 !important;
+    margin:-18px -14px 14px !important;
+    padding:12px 14px !important;
+    display:grid !important;
+    grid-template-columns:auto auto 1fr;
+    align-items:center;
+  }
+
+  #productEditor.mobile-open .editor-title .product-visual{
+    width:54px;
+    height:54px;
+    font-size:34px;
+  }
+
+  #productEditor.mobile-open .editor-title h2{
+    font-size:20px;
+  }
+
+  #productEditor.mobile-open .editor-title small{
+    font-size:10px;
+  }
+
+  .app-version-badge{
+    z-index:10060 !important;
+  }
+}

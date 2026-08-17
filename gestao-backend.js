@@ -1,295 +1,43 @@
 (() => {
-  'use strict';
-
-  let client = null;
-  let currentSession = null;
-
-  const cfg = () => window.TEM_AQUI_SUPABASE || {};
-  const isConfigured = () => Boolean(cfg().url && (cfg().publishableKey || cfg().anonKey));
-
-  function init() {
-    if (!isConfigured() || !window.supabase?.createClient) return false;
-    if (!client) {
-      client = window.supabase.createClient(
-        cfg().url,
-        cfg().publishableKey || cfg().anonKey,
-        { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
-      );
-    }
-    return true;
-  }
-
-  async function getSession() {
-    if (!init()) return null;
-    const { data, error } = await client.auth.getSession();
-    if (error) throw error;
-    currentSession = data?.session || null;
-    return currentSession;
-  }
-
-  async function signIn(email, password) {
-    if (!init()) throw new Error('Banco central não configurado.');
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    currentSession = data?.session || null;
-    return currentSession;
-  }
-
-  async function signOut() {
-    if (!init()) return;
-    const { error } = await client.auth.signOut();
-    if (error) throw error;
-    currentSession = null;
-  }
-
-  async function rolesForUser(userId) {
-    if (!userId) return [];
-    const { data, error } = await client.from('user_roles').select('role').eq('user_id', userId);
-    if (error) return [];
-    return [...new Set((data || []).map(r => String(r.role || '').toLowerCase()).filter(Boolean))];
-  }
-
-  const isAdminRole = roles => roles.some(r => ['administrador','admin'].includes(String(r).toLowerCase()));
-
-  function permissionsFromMember(row={}) {
-    return {
-      sell: Boolean(row.can_use_pos),
-      products: Boolean(row.can_manage_products || row.can_add_products || row.can_edit_products),
-      stock: Boolean(row.can_manage_stock),
-      customers: Boolean(row.can_view_customers),
-      credit: Boolean(row.can_view_customers),
-      promotions: Boolean(row.can_manage_products),
-      reports: Boolean(row.can_view_reports || row.can_view_revenue),
-      cash: Boolean(row.can_view_cash || row.can_manage_cash || row.can_open_cash || row.can_close_cash || row.can_move_cash),
-      staff: Boolean(row.can_manage_team),
-      settings: Boolean(row.can_manage_settings || row.can_manage_hours || row.can_manage_store_images)
-    };
-  }
-
-  async function myStores() {
-    const s = await getSession();
-    if (!s?.user) return [];
-    const uid = s.user.id;
-    const roles = await rolesForUser(uid);
-    const output = [];
-
-    if (isAdminRole(roles)) {
-      const { data, error } = await client.from('stores').select('*').is('deleted_at', null).order('name');
-      if (error) throw error;
-      return (data || []).map(store => ({
-        ...store, _memberRole:'owner', _permissions:null, _admin:true, _isOwner:true
-      }));
-    }
-
-    const own = await client.from('stores').select('*').eq('owner_id', uid).is('deleted_at', null).order('name');
-    if (own.error) throw own.error;
-    (own.data || []).forEach(store => output.push({
-      ...store, _memberRole:'owner', _permissions:null, _isOwner:true
-    }));
-
-    const membership = await client.from('store_members')
-      .select('store_id,role,status,can_use_pos,can_manage_products,can_add_products,can_edit_products,can_manage_stock,can_view_customers,can_view_reports,can_view_revenue,can_manage_team,can_view_cash,can_manage_cash,can_open_cash,can_close_cash,can_move_cash,can_manage_settings,can_manage_hours,can_manage_store_images')
-      .eq('user_id', uid)
-      .in('status', ['active','ativo']);
-    if (!membership.error && membership.data?.length) {
-      const ids = [...new Set(membership.data.map(m => m.store_id).filter(Boolean))];
-      const storesQ = await client.from('stores').select('*').in('id', ids).is('deleted_at', null);
-      if (storesQ.error) throw storesQ.error;
-      const memberByStore = new Map(membership.data.map(m => [String(m.store_id),m]));
-      (storesQ.data || []).forEach(store => {
-        if (output.some(x => x.id === store.id)) return;
-        const m = memberByStore.get(String(store.id)) || {};
-        output.push({
-          ...store,
-          _memberRole: ['manager','gerente'].includes(String(m.role||'').toLowerCase()) ? 'manager' : 'editor',
-          _permissions: permissionsFromMember(m),
-          _isOwner:false
-        });
-      });
-    }
-    return output.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
-  }
-
-  async function storeCategories(storeId) {
-    const { data, error } = await client.from('store_inventory_categories')
-      .select('id,name,slug,parent_id,sort_order,active')
-      .eq('store_id', storeId).eq('active', true)
-      .order('sort_order').order('name');
-    if (error) throw error;
-    return data || [];
-  }
-
-  function mapProduct(p, categoryName='Outros') {
-    const unitRaw = String(p.unit || 'un').trim();
-    const unit = unitRaw === 'un' ? 'un.' : unitRaw;
-    return {
-      id: String(p.id),
-      name: p.name || 'Produto',
-      category: categoryName || p.subcategory || p.storefront_category || p.category || 'Outros',
-      categoryId: p.inventory_category_id || null,
-      barcode: p.barcode || '',
-      sku: p.sku || '',
-      price: Number(p.price || 0),
-      cost: Number(p.cost_price || 0),
-      stock: Number(p.stock ?? p.stock_quantity ?? 0),
-      minimumStock: Number(p.minimum_stock || 0),
-      unit,
-      showcase: Boolean(p.available),
-      active: p.is_active !== false && p.available !== false,
-      image: p.image_url || (Array.isArray(p.images) ? p.images[0] : '') || '',
-      icon: '📦'
-    };
-  }
-
-  async function storeProducts(storeId) {
-    const cats = await storeCategories(storeId);
-    const catMap = new Map(cats.map(c => [String(c.id), c.name]));
-    const { data, error } = await client.from('products')
-      .select('id,store_id,inventory_category_id,name,price,cost_price,stock,stock_quantity,minimum_stock,unit,available,is_active,image_url,images,barcode,sku,category,subcategory,storefront_category')
-      .eq('store_id', storeId)
-      .order('name', { ascending:true })
-      .limit(10000);
-    if (error) throw error;
-    return (data || []).map(p => mapProduct(p, catMap.get(String(p.inventory_category_id)) || 'Outros'));
-  }
-
-  function slugify(value) {
-    return String(value||'categoria').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'categoria';
-  }
-
-  async function createCategory(storeId, name) {
-    let slug = slugify(name);
-    const exists = await client.from('store_inventory_categories').select('id').eq('store_id',storeId).eq('slug',slug).maybeSingle();
-    if (exists.data?.id) return exists.data;
-    const { data, error } = await client.from('store_inventory_categories')
-      .insert({ store_id:storeId, name, slug, active:true }).select('id,name,slug').single();
-    if (error) throw error;
-    return data;
-  }
-
-  async function ensureCategory(storeId, name) {
-    const { data, error } = await client.from('store_inventory_categories')
-      .select('id,name,slug').eq('store_id',storeId).ilike('name',name).maybeSingle();
-    if (error && error.code !== 'PGRST116') throw error;
-    return data || createCategory(storeId,name);
-  }
-
-  async function renameCategory(storeId, original, name) {
-    const { data:cat, error:qErr } = await client.from('store_inventory_categories')
-      .select('id').eq('store_id',storeId).eq('name',original).maybeSingle();
-    if (qErr && qErr.code !== 'PGRST116') throw qErr;
-    if (!cat?.id) return createCategory(storeId,name);
-    const { data, error } = await client.from('store_inventory_categories')
-      .update({ name, slug:slugify(name), updated_at:new Date().toISOString() })
-      .eq('id',cat.id).eq('store_id',storeId).select('id,name').single();
-    if (error) throw error;
-    return data;
-  }
-
-  async function saveProduct(storeId, product) {
-    const category = await ensureCategory(storeId, product.category || 'Outros');
-    const payload = {
-      store_id: storeId,
-      inventory_category_id: category.id,
-      name: String(product.name||'').trim(),
-      category: product.category || 'Outros',
-      subcategory: product.category || 'Outros',
-      barcode: product.barcode || null,
-      sku: product.sku || null,
-      price: Math.max(0,Number(product.price||0)),
-      cost_price: Math.max(0,Number(product.cost||0)),
-      stock: Math.max(0,Number(product.stock||0)),
-      minimum_stock: Math.max(0,Number(product.minimumStock||0)),
-      unit: String(product.unit||'un.').replace(/^un\.$/,'un'),
-      available: product.showcase !== false,
-      is_active: product.active !== false,
-      image_url: product.image || null,
-      updated_at: new Date().toISOString()
-    };
-
-    if (product.id && /^[0-9a-f-]{36}$/i.test(String(product.id))) {
-      const { data, error } = await client.from('products').update(payload).eq('id',product.id).eq('store_id',storeId).select('*').single();
-      if (error) throw error;
-      return mapProduct(data, category.name);
-    }
-    const { data, error } = await client.from('products').insert(payload).select('*').single();
-    if (error) throw error;
-    return mapProduct(data, category.name);
-  }
-
-  async function listMembers(storeId) {
-    const { data, error } = await client.rpc('gestao_list_store_members',{ p_store_id:storeId });
-    if (error) throw error;
-    return data || [];
-  }
-
-  async function saveMember(storeId, member) {
-    const { data, error } = await client.rpc('gestao_upsert_store_member',{
-      p_store_id:storeId,
-      p_email:member.email,
-      p_member_role:member.role,
-      p_permissions:member.permissions || {},
-      p_active:member.active !== false,
-      p_display_name:member.name || ''
-    });
-    if (error) throw error;
-    return { user_id:data };
-  }
-
-  async function setMemberActive(storeId,userId,active) {
-    const { data,error } = await client.rpc('gestao_set_store_member_active',{
-      p_store_id:storeId,p_user_id:userId,p_active:Boolean(active)
-    });
-    if(error) throw error;
-    return data;
-  }
-
-  async function adjustStock(productId, quantity, movementType='adjustment', note='') {
-    const { data,error } = await client.rpc('gestao_adjust_product_stock',{
-      p_product_id:productId,p_quantity:Number(quantity),p_movement_type:movementType,p_note:note||null
-    });
-    if(error) throw error;
-    return Number(data);
-  }
-
-  async function applySaleStock(items=[]) {
-    const payload = items.map(i=>({
-      productId:i.productId || null,
-      qty:Number(i.qty||0),
-      loose:Boolean(i.loose)
-    }));
-    const { data,error } = await client.rpc('gestao_apply_sale_stock',{ p_items:payload });
-    if(error) throw error;
-    return data || [];
-  }
-
-  async function context(preferredStoreId='') {
-    const session = await getSession();
-    if(!session?.user) return { session:null, stores:[], store:null, products:[], categories:[], membership:null };
-    const stores = await myStores();
-    const store = stores.find(s=>String(s.id)===String(preferredStoreId)) || stores[0] || null;
-    if(!store) return { session, stores, store:null, products:[], categories:[], membership:null };
-
-    const categoriesRows = await storeCategories(store.id);
-    const products = await storeProducts(store.id);
-    const membership = {
-      isOwner:Boolean(store._isOwner),
-      isAdmin:Boolean(store._admin),
-      role:store._memberRole || 'editor',
-      permissions:store._isOwner || store._admin ? null : (store._permissions || {})
-    };
-    return {
-      session, stores, store, products,
-      categories:categoriesRows.map(c=>c.name),
-      categoryRows:categoriesRows,
-      membership
-    };
-  }
-
-  window.GestaoBackend = {
-    init,isConfigured,getSession,signIn,signOut,myStores,storeCategories,storeProducts,
-    createCategory,ensureCategory,renameCategory,saveProduct,
-    listMembers,saveMember,setMemberActive,adjustStock,applySaleStock,context
-  };
+'use strict';
+let client=null;
+const cfg=()=>window.TEM_AQUI_SUPABASE||{};
+const configured=()=>Boolean(cfg().url&&(cfg().publishableKey||cfg().anonKey));
+function init(){if(!configured()||!window.supabase?.createClient)return false;if(!client)client=window.supabase.createClient(cfg().url,cfg().publishableKey||cfg().anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});return true;}
+async function q(p){const {data,error}=await p;if(error)throw error;return data;}
+async function session(){if(!init())return null;const d=await q(client.auth.getSession());return d?.session||null;}
+async function signIn(email,password){if(!init())throw new Error('Banco central não configurado.');const d=await q(client.auth.signInWithPassword({email,password}));return d?.session||null;}
+async function signOut(){if(init())await q(client.auth.signOut());}
+async function roles(uid){if(!uid)return[];try{return [...new Set((await q(client.from('user_roles').select('role').eq('user_id',uid))||[]).map(x=>String(x.role||'').toLowerCase()))];}catch{return[];}}
+const perms=r=>({sell:!!r.can_use_pos,products:!!(r.can_manage_products||r.can_add_products||r.can_edit_products),stock:!!r.can_manage_stock,customers:!!r.can_view_customers,credit:!!r.can_view_customers,promotions:!!(r.can_manage_products||r.can_edit_products),reports:!!(r.can_view_reports||r.can_view_revenue),cash:!!(r.can_view_cash||r.can_manage_cash||r.can_open_cash||r.can_close_cash||r.can_move_cash),staff:!!r.can_manage_team,settings:!!(r.can_manage_settings||r.can_manage_hours||r.can_manage_store_images)});
+async function myStores(){const s=await session();if(!s?.user)return[];const uid=s.user.id,rr=await roles(uid),out=[];if(rr.some(r=>['admin','administrador'].includes(r))){return (await q(client.from('stores').select('*').is('deleted_at',null).order('name'))||[]).map(x=>({...x,_role:'owner',_owner:true,_admin:true,_permissions:null}));}const own=await q(client.from('stores').select('*').eq('owner_id',uid).is('deleted_at',null).order('name'));(own||[]).forEach(x=>out.push({...x,_role:'owner',_owner:true,_permissions:null}));const ms=await q(client.from('store_members').select('*').eq('user_id',uid).eq('status','active'));if(ms?.length){const ids=[...new Set(ms.map(x=>x.store_id))],stores=await q(client.from('stores').select('*').in('id',ids).is('deleted_at',null)),map=new Map(ms.map(x=>[String(x.store_id),x]));(stores||[]).forEach(x=>{if(out.some(y=>y.id===x.id))return;const m=map.get(String(x.id))||{};out.push({...x,_role:String(m.role).toLowerCase()==='manager'?'manager':'editor',_owner:false,_permissions:perms(m)});});}return out.sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));}
+async function categories(storeId){return await q(client.from('store_inventory_categories').select('id,name,slug,parent_id,sort_order,active').eq('store_id',storeId).eq('active',true).order('sort_order').order('name'))||[];}
+function mapProduct(p,cat='Outros'){return{id:String(p.id),name:p.name||'Produto',category:cat,categoryId:p.inventory_category_id||null,barcode:p.barcode||'',sku:p.sku||'',price:Number(p.price||0),cost:Number(p.cost_price||0),stock:Number(p.stock??p.stock_quantity??0),minimumStock:Number(p.minimum_stock||0),unit:String(p.unit||'un').replace(/^un$/,'un.'),showcase:p.available!==false,active:p.is_active!==false,image:p.image_url||(Array.isArray(p.images)?p.images[0]:'')||''};}
+async function products(storeId){const cc=await categories(storeId),cm=new Map(cc.map(c=>[String(c.id),c.name]));const d=await q(client.from('products').select('id,store_id,inventory_category_id,name,price,cost_price,stock,stock_quantity,minimum_stock,unit,available,is_active,image_url,images,barcode,sku').eq('store_id',storeId).order('name').limit(10000));return(d||[]).map(p=>mapProduct(p,cm.get(String(p.inventory_category_id))||'Outros'));}
+const slug=s=>String(s||'categoria').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'categoria';
+async function ensureCategory(storeId,name){let d=await q(client.from('store_inventory_categories').select('id,name,slug').eq('store_id',storeId).ilike('name',name).limit(1));if(d?.[0])return d[0];return await q(client.from('store_inventory_categories').insert({store_id:storeId,name,slug:slug(name),active:true}).select('id,name,slug').single());}
+async function createCategory(storeId,name){return ensureCategory(storeId,name);}
+async function renameCategory(storeId,oldName,name){const rows=await q(client.from('store_inventory_categories').select('id').eq('store_id',storeId).eq('name',oldName).limit(1));if(!rows?.[0])return ensureCategory(storeId,name);return await q(client.from('store_inventory_categories').update({name,slug:slug(name),updated_at:new Date().toISOString()}).eq('id',rows[0].id).eq('store_id',storeId).select('id,name').single());}
+async function saveProduct(storeId,p){const cat=await ensureCategory(storeId,p.category||'Outros');let old=null;if(p.id&&/^[0-9a-f-]{36}$/i.test(String(p.id))){const r=await q(client.from('products').select('id,stock').eq('id',p.id).eq('store_id',storeId).single());old=r;}const payload={store_id:storeId,inventory_category_id:cat.id,name:String(p.name||'').trim(),barcode:p.barcode||null,sku:p.sku||null,price:Math.max(0,Number(p.price||0)),cost_price:Math.max(0,Number(p.cost||0)),minimum_stock:Math.max(0,Number(p.minimumStock||0)),unit:String(p.unit||'un.').replace(/^un\.$/,'un'),available:p.showcase!==false,is_active:p.active!==false,image_url:p.image||null,updated_at:new Date().toISOString()};let row;if(old){row=await q(client.from('products').update(payload).eq('id',p.id).eq('store_id',storeId).select('*').single());if(Number(p.stock||0)!==Number(old.stock||0))await adjustStock(p.id,Math.max(0,Number(p.stock||0)),'adjustment','Ajuste pelo cadastro do produto');}else{payload.stock=Math.max(0,Number(p.stock||0));payload.stock_quantity=Math.max(0,Math.round(Number(p.stock||0)));row=await q(client.from('products').insert(payload).select('*').single());if(Number(payload.stock)>0)await q(client.from('inventory_movements').insert({store_id:storeId,product_id:row.id,user_id:(await session()).user.id,movement_type:'entry',quantity:payload.stock,previous_stock:0,new_stock:payload.stock,note:'Estoque inicial'}));}const fresh=await q(client.from('products').select('*').eq('id',row.id).single());return mapProduct(fresh,cat.name);}
+async function adjustStock(productId,quantity,type='adjustment',note=''){return Number(await q(client.rpc('gestao_adjust_product_stock',{p_product_id:productId,p_quantity:Number(quantity),p_movement_type:type,p_note:note||null})));}
+async function inventory(storeId,limit=300){return await q(client.from('inventory_movements').select('id,product_id,user_id,movement_type,quantity,previous_stock,new_stock,note,created_at,products(name)').eq('store_id',storeId).order('created_at',{ascending:false}).limit(limit))||[];}
+async function members(storeId){return await q(client.rpc('gestao_list_store_members',{p_store_id:storeId}))||[];}
+async function saveMember(storeId,m){return await q(client.rpc('gestao_upsert_store_member',{p_store_id:storeId,p_email:m.email,p_member_role:m.role,p_permissions:m.permissions||{},p_active:m.active!==false,p_display_name:m.name||''}));}
+async function setMemberActive(storeId,userId,active){return await q(client.rpc('gestao_set_store_member_active',{p_store_id:storeId,p_user_id:userId,p_active:!!active}));}
+async function customers(storeId,search=''){return await q(client.rpc('gestao_list_customers',{p_store_id:storeId,p_search:search||null}))||[];}
+async function saveCustomer(storeId,c){return await q(client.rpc('gestao_upsert_customer',{p_store_id:storeId,p_customer_id:c.id||null,p_name:c.name,p_whatsapp:c.whatsapp||null,p_credit_limit:Number(c.limit||0),p_notes:c.notes||null}));}
+async function customerCredit(storeId,customerId){return await q(client.rpc('gestao_list_customer_credit',{p_store_id:storeId,p_customer_id:customerId}))||[];}
+async function receivePayment(storeId,customerId,amount,note=''){return Number(await q(client.rpc('gestao_receive_customer_payment',{p_store_id:storeId,p_customer_id:customerId,p_amount:Number(amount),p_note:note||null})));}
+async function openCash(storeId,opening=0,note=''){return await q(client.rpc('open_pos_cash',{p_store_id:storeId,p_opening_amount:Number(opening),p_notes:note||null}));}
+async function openCashInfo(storeId){const d=await q(client.rpc('get_my_open_pos_cash',{p_store_id:storeId}));return d?.[0]||null;}
+async function closeCash(cashId,counted,note=''){return await q(client.rpc('close_store_cash_v1012',{p_cash_session_id:cashId,p_counted_amount:Number(counted),p_notes:note||null}));}
+async function cashReport(storeId,start,end){return await q(client.rpc('get_store_cash_report',{p_store_id:storeId,p_start:start||new Date(Date.now()-30*86400000).toISOString(),p_end:end||new Date(Date.now()+86400000).toISOString()}))||[];}
+async function finalizeSale(storeId,data){const items=(data.items||[]).map(i=>({productId:i.productId||null,name:i.name||'Item',unit:String(i.unit||'un.').replace(/^un\.$/,'un'),qty:Number(i.qty||0),price:Number(i.price||0)}));return await q(client.rpc('gestao_finalize_sale',{p_store_id:storeId,p_items:items,p_payment_method:data.payment,p_discount:Number(data.discount||0),p_surcharge:Number(data.surcharge||0),p_amount_received:data.cashReceived==null?null:Number(data.cashReceived),p_customer_id:data.customerId||null,p_due_date:data.dueDate||null,p_note:data.note||null}));}
+async function sales(storeId,limit=500){return await q(client.rpc('gestao_list_sales',{p_store_id:storeId,p_limit:limit}))||[];}
+async function saleItems(saleId){return await q(client.rpc('gestao_list_sale_items',{p_sale_id:saleId}))||[];}
+async function promotions(storeId){return await q(client.rpc('gestao_list_promotions',{p_store_id:storeId}))||[];}
+async function savePromotion(storeId,p){return await q(client.rpc('gestao_save_promotion',{p_store_id:storeId,p_campaign_key:p.id||null,p_title:p.name,p_discount_percent:Number(p.discountPercent),p_starts_at:p.startAt,p_ends_at:p.endAt,p_product_ids:p.productIds,p_publish:!!p.publish,p_active:p.active!==false}));}
+async function setPromotionActive(storeId,id,active){return await q(client.rpc('gestao_set_promotion_active',{p_store_id:storeId,p_campaign_key:id,p_active:!!active}));}
+async function context(preferred=''){const s=await session();if(!s?.user)return{session:null,stores:[],store:null};const ss=await myStores(),store=ss.find(x=>String(x.id)===String(preferred))||ss[0]||null;if(!store)return{session:s,stores:ss,store:null};const [pp,cc]=await Promise.all([products(store.id),categories(store.id)]);return{session:s,stores:ss,store,products:pp,categories:cc,membership:{isOwner:!!store._owner,isAdmin:!!store._admin,role:store._role||'editor',permissions:store._owner||store._admin?null:(store._permissions||{})}};}
+window.GestaoBackend={init,isConfigured:configured,getSession:session,signIn,signOut,myStores,categories,products,createCategory,renameCategory,saveProduct,adjustStock,inventory,members,saveMember,setMemberActive,customers,saveCustomer,customerCredit,receivePayment,openCash,openCashInfo,closeCash,cashReport,finalizeSale,sales,saleItems,promotions,savePromotion,setPromotionActive,context};
 })();

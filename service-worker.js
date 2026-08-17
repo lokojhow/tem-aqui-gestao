@@ -1,5 +1,5 @@
-const CACHE='tem-aqui-gestao-v0-9-4-pos4';
-const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./pos-enhancements.js','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
+const CACHE='tem-aqui-gestao-v0-9-4-barcode1';
+const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./pos-enhancements.js','./barcode-scanner.js','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
@@ -10,9 +10,10 @@ self.addEventListener('fetch',e=>{
       fetch(e.request,{cache:'no-store'}).then(r=>r.text()),
       fetch(new URL('./responsive.css',self.location),{cache:'no-store'}).then(r=>r.text()),
       fetch(new URL('./product-uniform.css',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./header-cleanup.css',self.location),{cache:'no-store'}).then(r=>r.text())
-    ]).then(([base,responsive,uniform,cleanup])=>{
-      const nr=new Response(base+'\n'+responsive+'\n'+uniform+'\n'+cleanup,{status:200,headers:{'Content-Type':'text/css; charset=utf-8','Cache-Control':'no-store'}});
+      fetch(new URL('./header-cleanup.css',self.location),{cache:'no-store'}).then(r=>r.text()),
+      fetch(new URL('./barcode-scanner.css',self.location),{cache:'no-store'}).then(r=>r.text())
+    ]).then(([base,responsive,uniform,cleanup,barcode])=>{
+      const nr=new Response(base+'\n'+responsive+'\n'+uniform+'\n'+cleanup+'\n'+barcode,{status:200,headers:{'Content-Type':'text/css; charset=utf-8','Cache-Control':'no-store'}});
       caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
       return nr;
     }).catch(()=>caches.match(e.request)));
@@ -21,9 +22,10 @@ self.addEventListener('fetch',e=>{
   if(u.pathname.endsWith('/app.js')){
     e.respondWith(Promise.all([
       fetch(e.request,{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./pos-enhancements.js',self.location),{cache:'no-store'}).then(r=>r.text())
-    ]).then(([base,enh])=>{
-      const nr=new Response(base+'\n'+enh,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
+      fetch(new URL('./pos-enhancements.js',self.location),{cache:'no-store'}).then(r=>r.text()),
+      fetch(new URL('./barcode-scanner.js',self.location),{cache:'no-store'}).then(r=>r.text())
+    ]).then(([base,enh,barcode])=>{
+      const nr=new Response(base+'\n'+enh+'\n'+barcode,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
       caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
       return nr;
     }).catch(()=>caches.match(e.request)));

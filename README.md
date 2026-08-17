@@ -98,10 +98,10 @@ Nesta etapa os dados continuam salvos no navegador (`localStorage`). O próximo 
 - Mantém funcionamento local quando o banco ainda não está configurado.
 - Inclui `BANCO-CENTRAL-TEM-AQUI-GESTAO-V09.sql`.
 - Inclui guia `MIGRACAO-TEM-AQUI-PARA-GESTAO.md`.
-- Versão visível: **V0.9.1**.
+- Versão visível: **V0.9.3**.
 
 
-## V0.9.1 — Banco central e estoque real
+## V0.9.3 — Banco central e estoque real
 
 Esta versão liga o Tem Aqui Gestão ao Supabase central do Tem Aqui usando somente a chave pública do frontend.
 
@@ -117,3 +117,14 @@ Implementado:
 - nova identidade Tem Aqui Gestão.
 
 Observação: criação de um novo funcionário exige que o e-mail já possua uma conta no Tem Aqui. Nenhuma chave service_role é armazenada no aplicativo.
+
+
+## V0.9.3 — compatibilidade com o banco real
+
+Esta versão não depende do SQL V0.9.2 gerado anteriormente.
+O frontend foi mantido usando a estrutura real já existente no Supabase:
+`store_members.role`, `store_members.status`, permissões `can_*`,
+`store_inventory_categories`, `inventory_movements` e os RPCs `gestao_*`.
+
+O patch de segurança/compatibilidade dos RPCs foi aplicado diretamente no
+Supabase central antes da geração deste pacote.

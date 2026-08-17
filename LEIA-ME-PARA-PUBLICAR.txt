@@ -1,0 +1,27 @@
+# TEM AQUI GESTÃO V0.9.3 — PUBLICAÇÃO
+
+Esta versão foi alinhada com o banco Supabase REAL do Tem Aqui.
+
+O patch de compatibilidade do Supabase já foi aplicado no projeto central.
+Você NÃO precisa executar o SQL antigo da V0.9.2.
+
+Para publicar:
+1. Extraia este ZIP.
+2. Envie/substitua os arquivos na raiz do repositório tem-aqui-gestao.
+3. Faça o commit.
+4. Aguarde o deploy do Cloudflare/GitHub terminar.
+5. Abra o aplicativo em aba anônima ou limpe o cache se aparecer versão antiga.
+
+Principais pontos:
+- login no Supabase central;
+- lojas separadas por proprietário/equipe;
+- produtos reais por store_id;
+- categorias internas usando store_inventory_categories;
+- estoque, custo, estoque mínimo, SKU e código de barras;
+- baixa de estoque no PDV com transação;
+- permissões de gerente/funcionário;
+- nova identidade Tem Aqui Gestão;
+- cache PWA atualizado para V0.9.3.
+
+NÃO envie o arquivo ZIP para dentro do repositório.
+Envie os arquivos que estão dentro dele.

@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const APP_VERSION = '0.9.1';
+  const APP_VERSION = '0.9.3';
   const $ = (id) => document.getElementById(id);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
   const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -1009,5 +1009,5 @@
   if($('appVersionBadge')) $('appVersionBadge').textContent = `V${APP_VERSION}`;
   syncCategoryState();renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderPromotions();renderHistory();renderReports();renderCash();renderStaff();renderSettings();applyAccessVisibility();
   if(window.GestaoBackend?.isConfigured?.()){setTimeout(async()=>{try{const session=await window.GestaoBackend.getSession();if(session)await syncCentralDatabase();else{renderCentralStatus('Banco configurado. Entre com a conta do lojista.');$('centralLoginDialog')?.showModal();}}catch(error){console.warn('Banco central:',error);}},150);}
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.9.1').catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.9.3').catch(()=>{});
 })();

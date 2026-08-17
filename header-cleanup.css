@@ -1,0 +1,6 @@
+/* Tem Aqui Gestão — remove faixa superior duplicada */
+.feature-strip{display:none!important}
+.workspace{min-height:100vh}
+@media(min-width:768px){
+  main{padding-top:10px!important}
+}

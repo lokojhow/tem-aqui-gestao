@@ -1,0 +1,13 @@
+/* Tem Aqui Gestão — padronização visual de produtos */
+.product-grid{align-items:stretch!important;grid-auto-rows:1fr!important}
+.product-card{height:100%!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+.product-visual{box-sizing:border-box!important;width:100%!important;height:120px!important;min-height:120px!important;max-height:120px!important;aspect-ratio:auto!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;background:#fff!important;padding:8px!important;border-radius:8px!important}
+.product-visual img{display:block!important;width:100%!important;height:100%!important;min-width:100%!important;min-height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important;margin:0!important}
+.product-card h3{min-height:30px!important;max-height:30px!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important}
+.product-card small{min-height:12px!important}
+.product-card strong{margin-top:auto!important}
+@media (min-width:1400px){.product-visual{height:128px!important;min-height:128px!important;max-height:128px!important}}
+@media (min-width:768px) and (max-width:1399px){.product-visual{height:112px!important;min-height:112px!important;max-height:112px!important}}
+@media (max-width:767px){.product-visual{height:104px!important;min-height:104px!important;max-height:104px!important;padding:6px!important}.product-card h3{min-height:28px!important;max-height:28px!important}}
+@media (max-width:430px){.product-visual{height:92px!important;min-height:92px!important;max-height:92px!important;padding:5px!important}}
+@media (max-width:350px){.product-visual{height:130px!important;min-height:130px!important;max-height:130px!important}}

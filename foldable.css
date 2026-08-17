@@ -1,0 +1,54 @@
+/* Tem Aqui Gestão — modos smartphone / foldable / tablet / desktop */
+html[data-device-layout="smartphone"] body{padding-bottom:76px;background:#f4f7fb}
+html[data-device-layout="smartphone"] .app-shell{display:block!important}
+html[data-device-layout="smartphone"] .sidebar{display:none!important}
+html[data-device-layout="smartphone"] .feature-strip{display:none!important}
+html[data-device-layout="smartphone"] main{padding:6px!important;width:100%!important;max-width:100%!important}
+html[data-device-layout="smartphone"] [data-view="pos"].active{height:auto!important;overflow:visible!important}
+html[data-device-layout="smartphone"] [data-view="pos"]>.sale-panel{height:auto!important;overflow:visible!important;border-radius:14px!important}
+html[data-device-layout="smartphone"] [data-view="pos"] .pdv-grid{display:block!important;overflow:visible!important}
+html[data-device-layout="smartphone"] [data-view="pos"] .catalog-pane{padding:10px!important;border-right:0!important}
+html[data-device-layout="smartphone"] [data-view="pos"] .search-row{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;position:sticky;top:0;z-index:20;background:#fff;padding:4px 0 8px}
+html[data-device-layout="smartphone"] [data-view="pos"] .search-box{grid-column:1/-1!important}
+html[data-device-layout="smartphone"] [data-view="pos"] .product-grid.enhanced-products{grid-template-columns:repeat(2,minmax(0,1fr))!important;max-height:58vh!important;overflow-y:auto!important;gap:8px!important;padding-bottom:8px}
+html[data-device-layout="smartphone"] [data-view="pos"] .enhanced-products .product-card{height:166px!important;min-height:166px!important;max-height:166px!important;border-radius:12px!important}
+html[data-device-layout="smartphone"] [data-view="pos"] .enhanced-products .product-visual{height:84px!important;min-height:84px!important;max-height:84px!important}
+html[data-device-layout="smartphone"] [data-view="pos"] .cart-pane{position:static!important;height:auto!important;max-height:none!important;overflow:visible!important;border-left:0!important;border-top:1px solid var(--line)!important;padding:10px!important;background:#fff}
+html[data-device-layout="smartphone"] [data-view="pos"] .checkout-panel.pos-mounted{margin-top:8px!important}
+html[data-device-layout="smartphone"] [data-view="pos"] .payment-grid{grid-template-columns:repeat(2,1fr)!important}
+html[data-device-layout="smartphone"] [data-view="pos"] .sale-actions.pos-mounted-actions{grid-template-columns:1fr!important}
+html[data-device-layout="smartphone"] .mobile-bottom-nav{display:grid!important;grid-template-columns:repeat(5,1fr)!important;position:fixed!important;left:0;right:0;bottom:0;z-index:10050;background:linear-gradient(90deg,#061a3a,#0b254f);padding:7px 4px calc(7px + env(safe-area-inset-bottom))!important}
+
+/* Fold aberto: sem sidebar, mas com catálogo + checkout lado a lado */
+html[data-device-layout="foldable"] body{padding-bottom:76px;background:#f4f7fb}
+html[data-device-layout="foldable"] .app-shell{display:block!important}
+html[data-device-layout="foldable"] .sidebar{display:none!important}
+html[data-device-layout="foldable"] .feature-strip{display:none!important}
+html[data-device-layout="foldable"] main{padding:8px!important;width:100%!important;max-width:100%!important}
+html[data-device-layout="foldable"] [data-view="pos"].active{height:calc(var(--device-vh,100vh) - 86px)!important;overflow:hidden!important}
+html[data-device-layout="foldable"] [data-view="pos"]>.sale-panel{height:100%!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;border-radius:14px!important}
+html[data-device-layout="foldable"] [data-view="pos"] .pdv-grid{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(270px,34vw)!important;flex:1;min-height:0;overflow:hidden!important}
+html[data-device-layout="foldable"] [data-view="pos"] .catalog-pane{min-height:0;display:flex!important;flex-direction:column!important;overflow:hidden!important;padding:10px!important;border-right:1px solid var(--line)!important}
+html[data-device-layout="foldable"] [data-view="pos"] .search-row{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+html[data-device-layout="foldable"] [data-view="pos"] .search-box{grid-column:1/-1!important}
+html[data-device-layout="foldable"] [data-view="pos"] .product-grid.enhanced-products{grid-template-columns:repeat(2,minmax(0,1fr))!important;flex:1!important;max-height:none!important;overflow-y:auto!important;gap:8px!important}
+html[data-device-layout="foldable"] [data-view="pos"] .enhanced-products .product-card{height:172px!important;min-height:172px!important;max-height:172px!important}
+html[data-device-layout="foldable"] [data-view="pos"] .enhanced-products .product-visual{height:90px!important;min-height:90px!important;max-height:90px!important}
+html[data-device-layout="foldable"] [data-view="pos"] .cart-pane{position:sticky!important;top:0!important;height:100%!important;max-height:100%!important;overflow-y:auto!important;align-self:start;background:#fff;z-index:5;border-left:0!important;padding:10px!important}
+html[data-device-layout="foldable"] [data-view="pos"] .checkout-panel.pos-mounted{display:block!important;margin:8px 0 0!important;padding:0!important;border:0!important;box-shadow:none!important;background:transparent!important}
+html[data-device-layout="foldable"] [data-view="pos"] .checkout-panel.pos-mounted>h2{display:none!important}
+html[data-device-layout="foldable"] [data-view="pos"] .checkout-panel.pos-mounted .checkout-grid{grid-template-columns:1fr!important;gap:8px!important}
+html[data-device-layout="foldable"] [data-view="pos"] .checkout-panel.pos-mounted .checkout-summary{display:none!important}
+html[data-device-layout="foldable"] [data-view="pos"] .payment-grid{grid-template-columns:repeat(2,1fr)!important}
+html[data-device-layout="foldable"] [data-view="pos"] .sale-actions.pos-mounted-actions{display:grid!important;grid-template-columns:1fr!important;gap:7px!important;padding-top:8px!important}
+html[data-device-layout="foldable"] .mobile-bottom-nav{display:grid!important;grid-template-columns:repeat(5,1fr)!important;position:fixed!important;left:0;right:0;bottom:0;z-index:10050;background:linear-gradient(90deg,#061a3a,#0b254f);padding:7px 4px calc(7px + env(safe-area-inset-bottom))!important}
+
+/* Tablet: mais espaço, 3 colunas de catálogo e checkout lateral */
+html[data-device-layout="tablet"] [data-view="pos"] .product-grid.enhanced-products{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+html[data-device-layout="tablet"] [data-view="pos"] .pdv-grid{grid-template-columns:minmax(0,1fr) minmax(310px,36vw)!important}
+
+/* Ajustes para Fold aberto em paisagem */
+@media (min-width:760px) and (max-width:999px) and (orientation:landscape){
+  html[data-device-layout="foldable"] [data-view="pos"] .product-grid.enhanced-products{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  html[data-device-layout="foldable"] [data-view="pos"] .pdv-grid{grid-template-columns:minmax(0,1fr) minmax(300px,32vw)!important}
+}

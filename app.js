@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const APP_VERSION = '0.9.0';
+  const APP_VERSION = '0.9.1';
   const $ = (id) => document.getElementById(id);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
   const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -390,7 +390,7 @@
     updateCashChange();
     if(payment==='dinheiro') setTimeout(()=>$('cashReceivedInput')?.focus(),50);
   }
-  function confirmSale(){
+  async function confirmSale(){
     if(!state.cart.length) return alert('A venda está vazia.');
     if(!state.payment) return alert('Selecione uma forma de pagamento.');
     let cashReceived=null, cashChange=null;
@@ -414,6 +414,14 @@
       const total=cartTotal();
       if(Number(customer.limit||0)>0 && Number(customer.debt||0)+total>Number(customer.limit||0)) return alert('A venda ultrapassa o limite de crédito deste cliente.');
       customer.debt=Number(customer.debt||0)+total; state.selectedCustomerId=customer.id;
+    }
+    if(window.GestaoBackend?.isConfigured?.() && state.centralSession && state.central.storeId){
+      try{
+        await window.GestaoBackend.applySaleStock(state.cart);
+      }catch(error){
+        console.error(error);
+        return alert(`Não foi possível baixar o estoque no banco central: ${error.message||error}`);
+      }
     }
     state.cart.forEach(i=>{if(i.loose)return;const p=state.products.find(p=>p.id===i.productId);if(p)p.stock=Math.max(0,Number(p.stock||0)-Number(i.qty||0));});
     const operator=currentStaff();
@@ -463,7 +471,7 @@
     if(selectedCategory) list=list.filter(p=>(p.category||'Outros')===selectedCategory);
 
     const renderRow=(p)=>`<div class="manage-product-row ${p.id===state.selectedManageProductId?'active':''}" data-manage-product="${p.id}">
-      <div class="product-visual" style="width:42px;height:42px;font-size:27px">${iconForProduct(p)}</div>
+      <div class="product-visual" style="width:42px;height:42px;font-size:27px">${p.image?`<img src="${esc(p.image)}" alt="">`:iconForProduct(p)}</div>
       <div class="manage-product-main">
         <b>${esc(p.name)}</b>
         <small><span class="manage-category-name">${esc(p.category||'Outros')}</span> · ${esc(p.barcode||'Sem código')} · ${money(p.price)}</small>
@@ -487,7 +495,7 @@
   }
 
   function renderProductEditor(newMode=false){
-    const p=newMode?{id:'',name:'',barcode:'',sku:'',category:state.manageProductCategoryFilter||'Outros',price:0,cost:0,stock:0,unit:'un.',showcase:false,active:true,icon:'📦'}:state.products.find(p=>p.id===state.selectedManageProductId);
+    const p=newMode?{id:'',name:'',barcode:'',sku:'',category:state.manageProductCategoryFilter||'Outros',price:0,cost:0,stock:0,minimumStock:0,unit:'un.',showcase:false,active:true,image:'',icon:'📦'}:state.products.find(p=>p.id===state.selectedManageProductId);
     if(!p){
       $('productEditor').classList.remove('mobile-open');
       $('productEditor').innerHTML='<div class="empty-state">Selecione um produto ou clique em Novo Produto.</div>';
@@ -496,16 +504,53 @@
     syncCategoryState();
     const promo=activePromotionForProduct(p);
     const categoryOptions=state.categories.map(c=>`<option value="${esc(c)}" ${c===(p.category||'Outros')?'selected':''}>${esc(c)}</option>`).join('');
-    $('productEditor').innerHTML=`<div class="editor-title"><button type="button" class="editor-back-button" id="productEditorBackButton">← Voltar</button><div class="product-visual">${iconForProduct(p)}</div><div><h2>${esc(p.name||'Novo produto')}</h2><small>${esc(p.unit||'un.')} · ${p.active!==false?'Ativo':'Inativo'}${promo?` · Promoção ${Number(promo.discountPercent||0).toLocaleString('pt-BR')}%`:''}</small></div></div><form id="editorForm" class="editor-form"><input type="hidden" id="editProductId" value="${esc(p.id)}"><label>Nome<input id="editProductName" value="${esc(p.name)}" required></label><label>Categoria<select id="editProductCategory">${categoryOptions}</select></label><label>Código de Barras (EAN/GTIN)<input id="editProductBarcode" value="${esc(p.barcode||'')}"></label><label>Código Interno (SKU)<input id="editProductSku" value="${esc(p.sku||'')}"></label><label>Preço de Venda (R$)<input id="editProductPrice" type="number" min="0" step="0.01" value="${Number(p.price||0)}"></label><label>Custo (R$)<input id="editProductCost" type="number" min="0" step="0.01" value="${Number(p.cost||0)}"></label><label>Estoque Atual<input id="editProductStock" type="number" min="0" step="0.001" value="${Number(p.stock||0)}"></label><label>Unidade<select id="editProductUnit"><option ${p.unit==='un.'?'selected':''}>un.</option><option ${p.unit==='kg'?'selected':''}>kg</option><option ${p.unit==='g'?'selected':''}>g</option><option ${p.unit==='L'?'selected':''}>L</option></select></label><label class="toggle-line wide"><span>Mostrar no Tem Aqui</span><input id="editProductShowcase" type="checkbox" ${p.showcase?'checked':''}></label><label class="toggle-line wide"><span>Produto ativo</span><input id="editProductActive" type="checkbox" ${p.active!==false?'checked':''}></label>${promo?`<div class="wide promotion-preview"><b>Promoção ativa:</b> ${esc(promo.name)} · ${Number(promo.discountPercent||0).toLocaleString('pt-BR')}% · preço atual ${money(productSalePrice(p))}</div>`:''}<div class="editor-actions"><button type="button" class="dark" id="cancelProductEdit">Cancelar</button><button class="green" type="submit">Salvar Alterações</button></div></form>`;
+    $('productEditor').innerHTML=`<div class="editor-title"><button type="button" class="editor-back-button" id="productEditorBackButton">← Voltar</button><div class="product-visual">${iconForProduct(p)}</div><div><h2>${esc(p.name||'Novo produto')}</h2><small>${esc(p.unit||'un.')} · ${p.active!==false?'Ativo':'Inativo'}${promo?` · Promoção ${Number(promo.discountPercent||0).toLocaleString('pt-BR')}%`:''}</small></div></div><form id="editorForm" class="editor-form"><input type="hidden" id="editProductId" value="${esc(p.id)}"><label>Nome<input id="editProductName" value="${esc(p.name)}" required></label><label>Categoria<select id="editProductCategory">${categoryOptions}</select></label><label>Código de Barras (EAN/GTIN)<input id="editProductBarcode" value="${esc(p.barcode||'')}"></label><label>Código Interno (SKU)<input id="editProductSku" value="${esc(p.sku||'')}"></label><label>Preço de Venda (R$)<input id="editProductPrice" type="number" min="0" step="0.01" value="${Number(p.price||0)}"></label><label>Custo (R$)<input id="editProductCost" type="number" min="0" step="0.01" value="${Number(p.cost||0)}"></label><label>Estoque Atual<input id="editProductStock" type="number" min="0" step="0.001" value="${Number(p.stock||0)}"></label><label>Estoque mínimo<input id="editProductMinimumStock" type="number" min="0" step="0.001" value="${Number(p.minimumStock||0)}"></label><label>Imagem do produto (URL)<input id="editProductImage" value="${esc(p.image||'')}" placeholder="https://..."></label><label>Unidade<select id="editProductUnit"><option ${p.unit==='un.'?'selected':''}>un.</option><option ${p.unit==='kg'?'selected':''}>kg</option><option ${p.unit==='g'?'selected':''}>g</option><option ${p.unit==='L'?'selected':''}>L</option></select></label><label class="toggle-line wide"><span>Mostrar no Tem Aqui</span><input id="editProductShowcase" type="checkbox" ${p.showcase?'checked':''}></label><label class="toggle-line wide"><span>Produto ativo</span><input id="editProductActive" type="checkbox" ${p.active!==false?'checked':''}></label>${promo?`<div class="wide promotion-preview"><b>Promoção ativa:</b> ${esc(promo.name)} · ${Number(promo.discountPercent||0).toLocaleString('pt-BR')}% · preço atual ${money(productSalePrice(p))}</div>`:''}<div class="editor-actions"><button type="button" class="dark" id="cancelProductEdit">Cancelar</button><button class="green" type="submit">Salvar Alterações</button></div></form>`;
     if(window.matchMedia('(max-width:900px)').matches) $('productEditor').classList.add('mobile-open');
     else $('productEditor').classList.remove('mobile-open');
     const closeProductEditor=()=>{state.selectedManageProductId='';$('productEditor').classList.remove('mobile-open');renderManageProducts();};
-    $('editorForm').addEventListener('submit',e=>{e.preventDefault();saveManagedProduct();});
+    $('editorForm').addEventListener('submit',async e=>{e.preventDefault();await saveManagedProduct();});
     $('cancelProductEdit').addEventListener('click',closeProductEditor);
     $('productEditorBackButton').addEventListener('click',closeProductEditor);
   }
-  function saveManagedProduct(){
-    const id=$('editProductId').value||uid();const prev=state.products.find(p=>p.id===id);const obj={id,name:$('editProductName').value.trim(),category:$('editProductCategory').value.trim()||'Outros',barcode:$('editProductBarcode').value.trim(),sku:$('editProductSku').value.trim(),price:Number($('editProductPrice').value||0),cost:Number($('editProductCost').value||0),stock:Number($('editProductStock').value||0),unit:$('editProductUnit').value,showcase:$('editProductShowcase').checked,active:$('editProductActive').checked,icon:prev?.icon||'📦'};const idx=state.products.findIndex(p=>p.id===id);if(idx>=0)state.products[idx]=obj;else state.products.push(obj);state.selectedManageProductId=id;syncCategoryState();persist();renderManageProducts();renderCategories();renderCatalog();renderSidebar();
+  async function saveManagedProduct(){
+    const rawId=$('editProductId').value;
+    const prev=state.products.find(p=>p.id===rawId);
+    const obj={
+      id:rawId||'',
+      name:$('editProductName').value.trim(),
+      category:$('editProductCategory').value.trim()||'Outros',
+      barcode:$('editProductBarcode').value.trim(),
+      sku:$('editProductSku').value.trim(),
+      price:Number($('editProductPrice').value||0),
+      cost:Number($('editProductCost').value||0),
+      stock:Number($('editProductStock').value||0),
+      minimumStock:Number($('editProductMinimumStock')?.value||0),
+      image:$('editProductImage')?.value.trim()||'',
+      unit:$('editProductUnit').value,
+      showcase:$('editProductShowcase').checked,
+      active:$('editProductActive').checked,
+      icon:prev?.icon||'📦'
+    };
+    if(!obj.name){alert('Informe o nome do produto.');return false;}
+    try{
+      if(window.GestaoBackend?.isConfigured?.() && state.centralSession && state.central.storeId){
+        const saved=await window.GestaoBackend.saveProduct(state.central.storeId,obj);
+        const idx=state.products.findIndex(p=>p.id===saved.id || (rawId && p.id===rawId));
+        if(idx>=0)state.products[idx]={...state.products[idx],...saved}; else state.products.push(saved);
+        state.selectedManageProductId=saved.id;
+      }else{
+        obj.id=obj.id||uid();
+        const idx=state.products.findIndex(p=>p.id===obj.id);
+        if(idx>=0)state.products[idx]=obj;else state.products.push(obj);
+        state.selectedManageProductId=obj.id;
+      }
+      syncCategoryState();persist();renderManageProducts();renderCategories();renderCatalog();renderSidebar();
+      return true;
+    }catch(error){
+      console.error(error);
+      alert(`Não foi possível salvar o produto: ${error.message||error}`);
+      return false;
+    }
   }
 
   function renderStock(){
@@ -535,21 +580,29 @@
     $('categoryDialog').showModal();
     setTimeout(()=>$('categoryName').focus(),50);
   }
-  function saveCategory(){
+  async function saveCategory(){
     const original=$('categoryOriginalName').value.trim();
     const name=$('categoryName').value.trim();
     if(!name) return false;
     const duplicate=state.categories.some(c=>c.toLowerCase()===name.toLowerCase() && c!==original);
     if(duplicate){alert('Já existe uma categoria com esse nome.');return false;}
-    if(original && original!==name){
-      state.products.forEach(p=>{if((p.category||'Outros')===original)p.category=name;});
-      state.categories=state.categories.map(c=>c===original?name:c);
-      if(state.stockCategoryFilter===original)state.stockCategoryFilter=name;
-    }else if(!state.categories.includes(name)){
-      state.categories.push(name);
+    try{
+      if(window.GestaoBackend?.isConfigured?.() && state.centralSession && state.central.storeId){
+        if(original && original!==name) await window.GestaoBackend.renameCategory(state.central.storeId,original,name);
+        else if(!original) await window.GestaoBackend.createCategory(state.central.storeId,name);
+      }
+      if(original && original!==name){
+        state.products.forEach(p=>{if((p.category||'Outros')===original)p.category=name;});
+        state.categories=state.categories.map(c=>c===original?name:c);
+        if(state.stockCategoryFilter===original)state.stockCategoryFilter=name;
+      }else if(!state.categories.includes(name)){
+        state.categories.push(name);
+      }
+      syncCategoryState();persist();renderStock();renderCategories();renderManageProducts();renderManageProductCategories();renderCatalog();
+      return true;
+    }catch(error){
+      console.error(error);alert(`Não foi possível salvar a categoria: ${error.message||error}`);return false;
     }
-    syncCategoryState();persist();renderStock();renderCategories();renderManageProducts();renderManageProductCategories();renderCatalog();
-    return true;
   }
 
   function openPromotionDialog(promo=null){
@@ -783,10 +836,13 @@
         state.central.storeId=String(store.id);
         state.central.storeName=store.name||'Loja';
         state.settings.storeName=store.name||state.settings.storeName;
-        if(context.products?.length){
+        if(Array.isArray(context.products)){
           state.products=context.products;
-          syncCategoryState();
         }
+        if(Array.isArray(context.categories) && context.categories.length){
+          state.categories=[...context.categories];
+        }
+        syncCategoryState();
         const role=context.membership?.isOwner||context.membership?.isAdmin?'owner':(context.membership?.role||'editor');
         const permissions={...rolePermissions(role),...(context.membership?.permissions||{})};
         const centralUser=context.session.user;
@@ -896,7 +952,7 @@
   $('newProductButton').addEventListener('click',()=>renderProductEditor(true));
 
   $('newCategoryButton').addEventListener('click',()=>openCategoryDialog());
-  $('saveCategoryButton').addEventListener('click',e=>{if(!$('categoryForm').reportValidity()||!saveCategory())e.preventDefault();});
+  $('saveCategoryButton').addEventListener('click',async e=>{if(!$('categoryForm').reportValidity()){e.preventDefault();return;}if(!(await saveCategory()))e.preventDefault();});
   $('showAllStockButton').addEventListener('click',()=>{state.stockCategoryFilter='';renderStock();});
   $('stockCategoryChips').addEventListener('click',e=>{
     const filter=e.target.closest('[data-stock-category]'),edit=e.target.closest('[data-edit-category]');
@@ -952,6 +1008,6 @@
 
   if($('appVersionBadge')) $('appVersionBadge').textContent = `V${APP_VERSION}`;
   syncCategoryState();renderSidebar();renderPos();renderCustomers();renderManageProducts();renderStock();renderPromotions();renderHistory();renderReports();renderCash();renderStaff();renderSettings();applyAccessVisibility();
-  if(window.GestaoBackend?.isConfigured?.()){setTimeout(async()=>{try{const session=await window.GestaoBackend.getSession();if(session)await syncCentralDatabase();else renderCentralStatus('Banco configurado. Faça login para sincronizar.');}catch(error){console.warn('Banco central:',error);}},150);}
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.9.0').catch(()=>{});
+  if(window.GestaoBackend?.isConfigured?.()){setTimeout(async()=>{try{const session=await window.GestaoBackend.getSession();if(session)await syncCentralDatabase();else{renderCentralStatus('Banco configurado. Entre com a conta do lojista.');$('centralLoginDialog')?.showModal();}}catch(error){console.warn('Banco central:',error);}},150);}
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=0.9.1').catch(()=>{});
 })();

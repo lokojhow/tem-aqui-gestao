@@ -1,10 +1,25 @@
-const CACHE='tem-aqui-gestao-v0-9-5-orders1';
-const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./pos-enhancements.js','./barcode-scanner.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./tem-aqui-pedido.ogg','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
+const CACHE='tem-aqui-gestao-v0-9-5-orders2';
+const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./pos-enhancements.js','./barcode-scanner.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+
+function base64AudioResponse(text){
+  const b64=String(text||'').replace(/\s+/g,'');
+  const raw=atob(b64);
+  const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
+  return new Response(bytes,{status:200,headers:{'Content-Type':'audio/ogg','Cache-Control':'public,max-age=31536000,immutable'}});
+}
+
 self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET')return;
   const u=new URL(e.request.url);
+  if(u.pathname.endsWith('/tem-aqui-pedido.ogg')){
+    e.respondWith(fetch(new URL('./sound1.txt',self.location),{cache:'no-store'}).then(r=>r.text()).then(base64AudioResponse).catch(async()=>{
+      const cached=await caches.match('./sound1.txt');
+      return cached?base64AudioResponse(await cached.text()):new Response('',{status:404});
+    }));
+    return;
+  }
   if(u.pathname.endsWith('/styles.css')){
     e.respondWith(Promise.all([
       fetch(e.request,{cache:'no-store'}).then(r=>r.text()),
@@ -30,9 +45,10 @@ self.addEventListener('fetch',e=>{
       fetch(new URL('./storefront-manager.js',self.location),{cache:'no-store'}).then(r=>r.text()),
       fetch(new URL('./foldable-layout.js',self.location),{cache:'no-store'}).then(r=>r.text()),
       fetch(new URL('./pwa-install.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./orders-module.js',self.location),{cache:'no-store'}).then(r=>r.text())
-    ]).then(([base,enh,barcode,storefront,foldable,installJs,orders])=>{
-      const nr=new Response(base+'\n'+enh+'\n'+barcode+'\n'+storefront+'\n'+foldable+'\n'+installJs+'\n'+orders,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
+      fetch(new URL('./orders-module.js',self.location),{cache:'no-store'}).then(r=>r.text()),
+      fetch(new URL('./orders-permission-ui.js',self.location),{cache:'no-store'}).then(r=>r.text())
+    ]).then(([base,enh,barcode,storefront,foldable,installJs,orders,orderPerms])=>{
+      const nr=new Response(base+'\n'+enh+'\n'+barcode+'\n'+storefront+'\n'+foldable+'\n'+installJs+'\n'+orders+'\n'+orderPerms,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
       caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
       return nr;
     }).catch(()=>caches.match(e.request)));
@@ -68,7 +84,7 @@ self.addEventListener('notificationclick',event=>{
   event.waitUntil((async()=>{
     const list=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     for(const c of list){
-      if(new URL(c.url).origin===self.location.origin){await c.focus(); if('navigate' in c)await c.navigate(url); return;}
+      if(new URL(c.url).origin===self.location.origin){await c.focus();if('navigate'in c)await c.navigate(url);return;}
     }
     await self.clients.openWindow(url);
   })());

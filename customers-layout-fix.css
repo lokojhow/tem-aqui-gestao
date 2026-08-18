@@ -1,0 +1,26 @@
+/* Tem Aqui Gestão — organização visual de Clientes / Ficha */
+[data-view="customers"] .customers-layout{grid-template-columns:minmax(320px,390px) minmax(0,1fr);gap:16px;align-items:start}
+[data-view="customers"] .customer-list-card,[data-view="customers"] .customer-detail-card{min-height:620px;padding:16px}
+[data-view="customers"] .customer-list-card .inline-search{margin-bottom:12px}
+[data-view="customers"] #customerList{display:flex;flex-direction:column;gap:8px}
+[data-view="customers"] .customer-row{width:100%;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:13px 14px;border:1px solid #e1e8f0;border-radius:10px;background:#fff;text-align:left;min-height:68px}
+[data-view="customers"] .customer-row:hover{border-color:#b7d4f5;background:#f8fbff}
+[data-view="customers"] .customer-row.active{background:#f1fff0;border-color:#8fdd82;box-shadow:0 4px 14px rgba(32,200,0,.08)}
+[data-view="customers"] .customer-row>span{display:flex;flex-direction:column;min-width:0;gap:5px;font-size:13px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+[data-view="customers"] .customer-row small{display:block;color:#718096;font-size:10px;font-weight:500;line-height:1.3;overflow-wrap:anywhere}
+[data-view="customers"] .customer-row>b{white-space:nowrap;font-size:13px;color:#172033;text-align:right;align-self:center}
+[data-view="customers"] .customer-row>b::before{content:'Saldo';display:block;color:#8996a5;font-size:8px;font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em}
+[data-view="customers"] .customer-detail-card{overflow:hidden}
+[data-view="customers"] .detail-header{padding:4px 2px 16px;gap:14px}
+[data-view="customers"] .detail-header>div:nth-child(2){min-width:0}
+[data-view="customers"] .detail-header h2{margin:0 0 5px;font-size:18px;overflow-wrap:anywhere}
+[data-view="customers"] .detail-header p{margin:3px 0;color:#718096;font-size:11px;overflow-wrap:anywhere}
+[data-view="customers"] .balance-big{min-width:145px;padding:10px 12px;border-radius:9px;background:#f7fafc;border:1px solid #e2e9f0}
+[data-view="customers"] .balance-big span{display:block;font-size:9px;color:#718096;margin-bottom:4px}
+[data-view="customers"] .balance-big strong{font-size:18px;color:#0b5fc5}
+[data-view="customers"] .detail-kpis>div{min-width:0}
+[data-view="customers"] .detail-kpis span{display:block;color:#718096;font-size:9px;margin-bottom:5px}
+[data-view="customers"] .detail-kpis strong{font-size:13px;overflow-wrap:anywhere}
+[data-view="customers"] .movements{margin-top:14px}
+[data-view="customers"] .detail-actions{margin-top:14px;padding-top:14px;border-top:1px solid #e6edf3}
+@media(max-width:900px){[data-view="customers"] .customers-layout{grid-template-columns:1fr}[data-view="customers"] .customer-list-card,[data-view="customers"] .customer-detail-card{min-height:auto}[data-view="customers"] .detail-header{align-items:flex-start;flex-wrap:wrap}[data-view="customers"] .balance-big{margin-left:0;width:100%;text-align:left}[data-view="customers"] .detail-kpis{grid-template-columns:1fr}}

@@ -1,0 +1,22 @@
+{
+  "name": "tem-aqui-gestao-desktop",
+  "productName": "Tem Aqui Gestão",
+  "version": "1.0.0",
+  "description": "Tem Aqui Gestão para Windows",
+  "main": "desktop/main.js",
+  "author": "Tem Aqui",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start:desktop": "electron .",
+    "make:windows": "electron-forge make --platform=win32 --arch=x64"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
+    "electron": "43.4.0"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "^1.0.1"
+  }
+}

@@ -1,35 +1,39 @@
 (() => {
   'use strict';
 
-  function closeDialog(dialog){
+  function forceClose(dialog){
     if(!dialog) return;
-    try { if(dialog.open && typeof dialog.close === 'function') dialog.close('cancel'); }
-    catch (_) { try { dialog.removeAttribute('open'); } catch(__){} }
+    try { if(typeof dialog.close === 'function' && dialog.open) dialog.close('cancel'); } catch (_) {}
+    // Alguns navegadores/WebViews podem manter o atributo open por causa de
+    // listeners antigos. Confere no próximo frame e remove como fallback.
+    requestAnimationFrame(()=>{
+      try { if(dialog.open) dialog.removeAttribute('open'); } catch (_) {}
+    });
+  }
+
+  function isCancelButton(btn){
+    if(!btn || btn.tagName !== 'BUTTON') return false;
+    const text=(btn.textContent||'').trim().toLocaleLowerCase('pt-BR');
+    return btn.value==='cancel' || btn.dataset.action==='cancel' || btn.dataset.close==='dialog' || text==='cancelar' || text==='fechar';
+  }
+
+  function prepareCancelButton(btn,dialog){
+    if(!btn || !dialog) return;
+    btn.type='button';
+    btn.setAttribute('formnovalidate','');
+    btn.dataset.safeCancelFixed='1';
   }
 
   function enhanceDialog(dialog){
-    if(!dialog || dialog.dataset.safeCloseFixed==='1') return;
+    if(!dialog) return;
     dialog.dataset.safeCloseFixed='1';
-
     const form=dialog.querySelector('form');
     if(form) form.style.position=form.style.position||'relative';
 
-    // Todo botão Cancelar deve fechar sem disparar validação HTML5.
     dialog.querySelectorAll('button').forEach(btn=>{
-      const text=(btn.textContent||'').trim().toLocaleLowerCase('pt-BR');
-      const isCancel=btn.value==='cancel' || btn.dataset.action==='cancel' || text==='cancelar' || text==='fechar';
-      if(!isCancel || btn.dataset.safeCancelFixed==='1') return;
-      btn.dataset.safeCancelFixed='1';
-      btn.type='button';
-      btn.setAttribute('formnovalidate','');
-      btn.addEventListener('click',e=>{
-        e.preventDefault();
-        e.stopPropagation();
-        closeDialog(dialog);
-      },true);
+      if(isCancelButton(btn)) prepareCancelButton(btn,dialog);
     });
 
-    // Garante um X em modais que ainda não possuem botão de fechamento.
     const hasClose=[...dialog.querySelectorAll('button')].some(btn=>{
       const t=(btn.textContent||'').trim();
       return btn.classList.contains('dialog-close-x') || btn.classList.contains('modal-close') || t==='×' || t==='✕';
@@ -38,18 +42,42 @@
       const x=document.createElement('button');
       x.type='button';
       x.className='dialog-close-x universal-dialog-close';
+      x.dataset.close='dialog';
       x.setAttribute('aria-label','Fechar');
       x.textContent='×';
-      x.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeDialog(dialog);},true);
       form.prepend(x);
     }
 
-    // ESC e clique no fundo fecham o modal.
-    dialog.addEventListener('cancel',e=>{e.preventDefault();closeDialog(dialog);});
-    dialog.addEventListener('click',e=>{if(e.target===dialog) closeDialog(dialog);});
+    if(dialog.dataset.safeDialogEvents!=='1'){
+      dialog.dataset.safeDialogEvents='1';
+      dialog.addEventListener('cancel',e=>{e.preventDefault();forceClose(dialog);},true);
+      dialog.addEventListener('click',e=>{if(e.target===dialog){e.preventDefault();forceClose(dialog);}},true);
+      if(form){
+        form.addEventListener('submit',e=>{
+          if(isCancelButton(e.submitter)){
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            forceClose(dialog);
+          }
+        },true);
+      }
+    }
   }
 
   function enhanceAll(){document.querySelectorAll('dialog').forEach(enhanceDialog);}
+
+  // Captura global: funciona inclusive para modais/botões criados depois do boot
+  // e impede listeners antigos do aplicativo de reabrirem ou validarem o form.
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest?.('button');
+    if(!isCancelButton(btn)) return;
+    const dialog=btn.closest('dialog');
+    if(!dialog) return;
+    prepareCancelButton(btn,dialog);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    forceClose(dialog);
+  },true);
 
   const style=document.createElement('style');
   style.textContent='.universal-dialog-close{position:absolute;right:10px;top:8px;width:38px;height:38px;border:0;border-radius:50%;background:#eef2f6;color:#344054;font-size:26px;line-height:1;z-index:30;cursor:pointer}';
@@ -57,5 +85,5 @@
 
   const obs=new MutationObserver(enhanceAll);
   function boot(){enhanceAll();obs.observe(document.body,{childList:true,subtree:true});}
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot,{once:true}); else boot();
 })();

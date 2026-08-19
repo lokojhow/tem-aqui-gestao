@@ -3,23 +3,33 @@ const path = require('path');
 
 if (require('electron-squirrel-startup')) app.quit();
 
-const DESKTOP_VERSION = '1.0.3';
+const DESKTOP_VERSION = '1.0.4';
+const DESKTOP_APP_NAME = 'TemAquiGestao';
 const DESKTOP_USER_AGENT = `Tem-Aqui-Gestao/${DESKTOP_VERSION}`;
 const BASE_URL = 'https://tem-aqui-gestao.pages.dev/';
 const APP_URL = `${BASE_URL}?desktop=1&desktop_build=${encodeURIComponent(DESKTOP_VERSION)}`;
 const APP_ORIGIN = new URL(BASE_URL).origin;
-const PARTITION = 'persist:tem-aqui-gestao';
+const PARTITION = 'persist:tem-aqui-gestao-v104';
 
-// O nome visual do aplicativo permanece "Tem Aqui Gestão", mas cabeçalhos HTTP
-// precisam ficar restritos a ASCII. O nome acentuado no User-Agent pode ser
-// serializado como Latin-1 pelo Chromium/Electron e quebrar o INSERT da sessão
-// do Supabase (invalid byte sequence for encoding "UTF8": 0xe3 0x6f 0x2f).
+// Nome interno e identidade de rede ficam 100% ASCII para evitar que o Electron
+// gere User-Agent corrompido (ex.: TemAquiGest�o/1.0.2), que faz o Supabase Auth
+// falhar ao inserir auth.sessions.user_agent em banco UTF-8.
+app.setName(DESKTOP_APP_NAME);
 app.userAgentFallback = DESKTOP_USER_AGENT;
 
 async function prepareSession(ses) {
   try { await ses.clearCache(); } catch (_) {}
   try { await ses.clearStorageData({ storages: ['serviceworkers', 'cachestorage'] }); } catch (_) {}
   try { ses.setUserAgent(DESKTOP_USER_AGENT); } catch (_) {}
+}
+
+function installNetworkConnector(ses) {
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const requestHeaders = { ...details.requestHeaders };
+    requestHeaders['User-Agent'] = DESKTOP_USER_AGENT;
+    requestHeaders['X-Tem-Aqui-Client'] = `desktop-${DESKTOP_VERSION}`;
+    callback({ requestHeaders });
+  });
 }
 
 async function ensureDesktopContext(win) {
@@ -30,12 +40,12 @@ async function ensureDesktopContext(win) {
           document.documentElement.dataset.desktopApp='1';
           window.__TEM_AQUI_DESKTOP__=true;
           window.__TEM_AQUI_DESKTOP_VERSION__='${DESKTOP_VERSION}';
-          const waitBackend=async()=>{for(let i=0;i<40;i++){if(window.GestaoBackend?.getSession&&window.GestaoBackend?.context)return true;await new Promise(r=>setTimeout(r,150));}return false;};
+          const waitBackend=async()=>{for(let i=0;i<60;i++){if(window.GestaoBackend?.getSession&&window.GestaoBackend?.context)return true;await new Promise(r=>setTimeout(r,150));}return false;};
           if(!await waitBackend()) return;
           const currentSession=await window.GestaoBackend.getSession();
           if(!currentSession){
             const status=document.getElementById('centralStatus');
-            if(status)status.textContent='Entre com sua conta do Tem Aqui Gestão para carregar loja, produtos e caixa.';
+            if(status)status.textContent='Banco Central online. Entre com sua conta do Tem Aqui Gestão.';
             const d=document.getElementById('centralLoginDialog');
             if(d&&!d.open)d.showModal();
             return;
@@ -50,10 +60,10 @@ async function ensureDesktopContext(win) {
             const status=document.getElementById('centralStatus');
             if(status)status.textContent='Esta conta não possui uma loja autorizada no Tem Aqui Gestão.';
           }
-        }catch(e){console.warn('Desktop context:',e);}
+        }catch(e){console.warn('Desktop connector:',e);}
       })();
     `, true);
-  } catch (e) { console.warn('Falha ao preparar contexto do desktop:', e); }
+  } catch (e) { console.warn('Falha ao preparar connector do desktop:', e); }
 }
 
 function createWindow() {
@@ -83,17 +93,13 @@ function createWindow() {
     event.preventDefault(); shell.openExternal(url);
   });
 
-  win.loadURL(APP_URL, { userAgent: DESKTOP_USER_AGENT, extraHeaders: 'Cache-Control: no-cache, no-store\nPragma: no-cache\n' });
+  win.loadURL(APP_URL, { userAgent: DESKTOP_USER_AGENT, extraHeaders: 'Cache-Control: no-cache, no-store\nPragma: no-cache\nX-Tem-Aqui-Client: desktop-1.0.4\n' });
 }
 
 app.whenReady().then(async () => {
   const ses = session.fromPartition(PARTITION);
   await prepareSession(ses);
-
-  ses.webRequest.onBeforeSendHeaders((details, callback) => {
-    const requestHeaders = { ...details.requestHeaders, 'User-Agent': DESKTOP_USER_AGENT };
-    callback({ requestHeaders });
-  });
+  installNetworkConnector(ses);
 
   ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
     if (requestingOrigin !== APP_ORIGIN) return false;

@@ -3,17 +3,16 @@ const path = require('path');
 
 if (require('electron-squirrel-startup')) app.quit();
 
-const DESKTOP_VERSION = '1.0.4';
+const DESKTOP_VERSION = '1.0.5';
 const DESKTOP_APP_NAME = 'TemAquiGestao';
 const DESKTOP_USER_AGENT = `Tem-Aqui-Gestao/${DESKTOP_VERSION}`;
-const BASE_URL = 'https://tem-aqui-gestao.pages.dev/';
-const APP_URL = `${BASE_URL}?desktop=1&desktop_build=${encodeURIComponent(DESKTOP_VERSION)}`;
-const APP_ORIGIN = new URL(BASE_URL).origin;
-const PARTITION = 'persist:tem-aqui-gestao-v104';
+const LOCAL_APP = path.join(__dirname, '..', 'index.html');
+const PARTITION = 'persist:tem-aqui-gestao-v105';
+const SUPABASE_HOST = 'izbkcdimyfoxikpzefba.supabase.co';
 
-// Nome interno e identidade de rede ficam 100% ASCII para evitar que o Electron
-// gere User-Agent corrompido (ex.: TemAquiGest�o/1.0.2), que faz o Supabase Auth
-// falhar ao inserir auth.sessions.user_agent em banco UTF-8.
+// O nome visual continua "Tem Aqui Gestão", mas o nome interno e a identidade
+// de rede ficam em ASCII. A interface do Windows é carregada do próprio pacote,
+// sem passar por Pages/Workers antes de autenticar no Supabase central.
 app.setName(DESKTOP_APP_NAME);
 app.userAgentFallback = DESKTOP_USER_AGENT;
 
@@ -28,6 +27,12 @@ function installNetworkConnector(ses) {
     const requestHeaders = { ...details.requestHeaders };
     requestHeaders['User-Agent'] = DESKTOP_USER_AGENT;
     requestHeaders['X-Tem-Aqui-Client'] = `desktop-${DESKTOP_VERSION}`;
+    try {
+      if (new URL(details.url).host === SUPABASE_HOST) {
+        delete requestHeaders.Referer;
+        delete requestHeaders.referer;
+      }
+    } catch (_) {}
     callback({ requestHeaders });
   });
 }
@@ -41,11 +46,15 @@ async function ensureDesktopContext(win) {
           window.__TEM_AQUI_DESKTOP__=true;
           window.__TEM_AQUI_DESKTOP_VERSION__='${DESKTOP_VERSION}';
           const waitBackend=async()=>{for(let i=0;i<60;i++){if(window.GestaoBackend?.getSession&&window.GestaoBackend?.context)return true;await new Promise(r=>setTimeout(r,150));}return false;};
-          if(!await waitBackend()) return;
+          if(!await waitBackend()){
+            const status=document.getElementById('centralStatus');
+            if(status)status.textContent='Não foi possível carregar o conector do Banco Central. Verifique sua internet.';
+            return;
+          }
           const currentSession=await window.GestaoBackend.getSession();
           if(!currentSession){
             const status=document.getElementById('centralStatus');
-            if(status)status.textContent='Banco Central online. Entre com sua conta do Tem Aqui Gestão.';
+            if(status)status.textContent='Banco Central disponível. Entre com sua conta do Tem Aqui.';
             const d=document.getElementById('centralLoginDialog');
             if(d&&!d.open)d.showModal();
             return;
@@ -76,7 +85,13 @@ function createWindow() {
     autoHideMenuBar: true,
     backgroundColor: '#f4f7fb',
     icon: path.join(__dirname, '..', 'icon-512.png'),
-    webPreferences: { partition: PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true, spellcheck: false }
+    webPreferences: {
+      partition: PARTITION,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      spellcheck: false
+    }
   });
 
   win.webContents.setUserAgent(DESKTOP_USER_AGENT);
@@ -84,16 +99,18 @@ function createWindow() {
   win.webContents.on('did-finish-load', () => { setTimeout(() => ensureDesktopContext(win), 700); });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    try { if (new URL(url).origin === APP_ORIGIN) return { action: 'allow' }; } catch (_) {}
-    shell.openExternal(url); return { action: 'deny' };
+    if (url.startsWith('file://')) return { action: 'allow' };
+    shell.openExternal(url);
+    return { action: 'deny' };
   });
 
   win.webContents.on('will-navigate', (event, url) => {
-    try { if (new URL(url).origin === APP_ORIGIN) return; } catch (_) {}
-    event.preventDefault(); shell.openExternal(url);
+    if (url.startsWith('file://')) return;
+    event.preventDefault();
+    shell.openExternal(url);
   });
 
-  win.loadURL(APP_URL, { userAgent: DESKTOP_USER_AGENT, extraHeaders: 'Cache-Control: no-cache, no-store\nPragma: no-cache\nX-Tem-Aqui-Client: desktop-1.0.4\n' });
+  win.loadFile(LOCAL_APP, { query: { desktop: '1', desktop_build: DESKTOP_VERSION } });
 }
 
 app.whenReady().then(async () => {
@@ -101,14 +118,14 @@ app.whenReady().then(async () => {
   await prepareSession(ses);
   installNetworkConnector(ses);
 
-  ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
-    if (requestingOrigin !== APP_ORIGIN) return false;
-    return ['media', 'notifications', 'fullscreen'].includes(permission);
+  ses.setPermissionCheckHandler((webContents, permission) => {
+    const url = webContents?.getURL?.() || '';
+    return url.startsWith('file://') && ['media', 'notifications', 'fullscreen'].includes(permission);
   });
 
-  ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
-    const origin = (() => { try { return new URL(details.requestingUrl || webContents.getURL()).origin; } catch (_) { return ''; } })();
-    callback(origin === APP_ORIGIN && ['media', 'notifications', 'fullscreen'].includes(permission));
+  ses.setPermissionRequestHandler((webContents, permission, callback) => {
+    const url = webContents?.getURL?.() || '';
+    callback(url.startsWith('file://') && ['media', 'notifications', 'fullscreen'].includes(permission));
   });
 
   createWindow();

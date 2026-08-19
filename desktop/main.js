@@ -3,16 +3,13 @@ const path = require('path');
 
 if (require('electron-squirrel-startup')) app.quit();
 
-const DESKTOP_VERSION = '1.0.5';
+const DESKTOP_VERSION = '1.0.6';
 const DESKTOP_APP_NAME = 'TemAquiGestao';
 const DESKTOP_USER_AGENT = `Tem-Aqui-Gestao/${DESKTOP_VERSION}`;
 const LOCAL_APP = path.join(__dirname, '..', 'index.html');
-const PARTITION = 'persist:tem-aqui-gestao-v105';
+const PARTITION = 'persist:tem-aqui-gestao-v106';
 const SUPABASE_HOST = 'izbkcdimyfoxikpzefba.supabase.co';
 
-// O nome visual continua "Tem Aqui Gestão", mas o nome interno e a identidade
-// de rede ficam em ASCII. A interface do Windows é carregada do próprio pacote,
-// sem passar por Pages/Workers antes de autenticar no Supabase central.
 app.setName(DESKTOP_APP_NAME);
 app.userAgentFallback = DESKTOP_USER_AGENT;
 
@@ -45,6 +42,32 @@ async function ensureDesktopContext(win) {
           document.documentElement.dataset.desktopApp='1';
           window.__TEM_AQUI_DESKTOP__=true;
           window.__TEM_AQUI_DESKTOP_VERSION__='${DESKTOP_VERSION}';
+
+          const ensureDesktopStyle=()=>{
+            if(document.getElementById('desktopPdvFix106'))return;
+            const style=document.createElement('style');
+            style.id='desktopPdvFix106';
+            style.textContent='html[data-desktop-app="1"] [data-view="pos"] .product-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;align-content:start!important;grid-auto-rows:auto!important}'+
+              'html[data-desktop-app="1"] [data-view="pos"] .product-card{height:172px!important;min-height:172px!important;max-height:172px!important;overflow:hidden!important;padding:8px!important}'+
+              'html[data-desktop-app="1"] [data-view="pos"] .product-icon,html[data-desktop-app="1"] [data-view="pos"] .product-visual{width:100%!important;height:84px!important;min-height:84px!important;max-height:84px!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;background:#fff!important;border-radius:8px!important}'+
+              'html[data-desktop-app="1"] [data-view="pos"] .product-icon img,html[data-desktop-app="1"] [data-view="pos"] .product-visual img{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important}'+
+              'html[data-desktop-app="1"] [data-view="pos"] .product-card b{font-size:10px!important;line-height:1.15!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;overflow:hidden!important;margin:5px 0 1px!important;width:100%!important}'+
+              'html[data-desktop-app="1"] [data-view="pos"] .product-card small{font-size:8px!important;line-height:1.1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;width:100%!important}'+
+              'html[data-desktop-app="1"] [data-view="pos"] .product-card strong{margin-top:auto!important;font-size:13px!important;color:#0759c7!important;display:block!important}'+
+              '@media(max-width:1250px){html[data-desktop-app="1"] [data-view="pos"] .product-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}';
+            document.head.appendChild(style);
+          };
+
+          const loadLocalScript=(id,src)=>new Promise(resolve=>{
+            if(document.getElementById(id))return resolve(true);
+            const s=document.createElement('script');s.id=id;s.src=src;s.async=false;
+            s.onload=()=>resolve(true);s.onerror=()=>resolve(false);document.body.appendChild(s);
+          });
+
+          ensureDesktopStyle();
+          await loadLocalScript('desktopPosEnhancements106','./pos-enhancements.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopOrdersModule106','./orders-module.js?v=desktop-${DESKTOP_VERSION}');
+
           const waitBackend=async()=>{for(let i=0;i<60;i++){if(window.GestaoBackend?.getSession&&window.GestaoBackend?.context)return true;await new Promise(r=>setTimeout(r,150));}return false;};
           if(!await waitBackend()){
             const status=document.getElementById('centralStatus');
@@ -65,6 +88,10 @@ async function ensureDesktopContext(win) {
             localStorage.setItem('tag-pref-store',ctx.store.id);
             const sync=document.getElementById('centralSyncButton');
             if(sync)setTimeout(()=>sync.click(),250);
+            setTimeout(()=>{
+              ensureDesktopStyle();
+              document.getElementById('marketplaceOrdersRoute')?.removeAttribute('hidden');
+            },1200);
           }else{
             const status=document.getElementById('centralStatus');
             if(status)status.textContent='Esta conta não possui uma loja autorizada no Tem Aqui Gestão.';
@@ -96,7 +123,7 @@ function createWindow() {
 
   win.webContents.setUserAgent(DESKTOP_USER_AGENT);
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
-  win.webContents.on('did-finish-load', () => { setTimeout(() => ensureDesktopContext(win), 700); });
+  win.webContents.on('did-finish-load', () => { setTimeout(() => ensureDesktopContext(win), 500); });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('file://')) return { action: 'allow' };

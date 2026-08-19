@@ -1,9 +1,37 @@
 const { app, BrowserWindow, shell, session } = require('electron');
+const path = require('path');
 
 if (require('electron-squirrel-startup')) app.quit();
 
-const APP_URL = 'https://tem-aqui-gestao.pages.dev/';
+const APP_URL = 'https://tem-aqui-gestao.pages.dev/?desktop=1';
 const APP_ORIGIN = new URL(APP_URL).origin;
+const PARTITION = 'persist:tem-aqui-gestao';
+
+async function ensureDesktopLogin(win) {
+  try {
+    await win.webContents.executeJavaScript(`
+      (async()=>{
+        try{
+          const s = await window.GestaoBackend?.getSession?.();
+          if (!s) {
+            const d = document.getElementById('centralLoginDialog');
+            if (d && !d.open) d.showModal();
+            const status = document.getElementById('centralStatus');
+            if (status) status.textContent = 'Entre com sua conta do Tem Aqui Gestão para carregar sua loja e produtos.';
+          } else {
+            const selected = localStorage.getItem('tag-pref-store') || '';
+            if (window.GestaoBackend?.context) {
+              const ctx = await window.GestaoBackend.context(selected);
+              if (ctx?.store) localStorage.setItem('tag-pref-store', ctx.store.id);
+            }
+          }
+        }catch(e){ console.warn('Desktop login check:',e); }
+      })();
+    `, true);
+  } catch (e) {
+    console.warn('Falha ao verificar login do desktop:', e);
+  }
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -14,8 +42,9 @@ function createWindow() {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#f4f7fb',
-    icon: require('path').join(__dirname, '..', 'icon-512.png'),
+    icon: path.join(__dirname, '..', 'icon-512.png'),
     webPreferences: {
+      partition: PARTITION,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -26,6 +55,10 @@ function createWindow() {
   win.once('ready-to-show', () => {
     win.maximize();
     win.show();
+  });
+
+  win.webContents.on('did-finish-load', () => {
+    setTimeout(() => ensureDesktopLogin(win), 500);
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -45,11 +78,11 @@ function createWindow() {
     shell.openExternal(url);
   });
 
-  win.loadURL(APP_URL);
+  win.loadURL(APP_URL, { extraHeaders: 'Cache-Control: no-cache\n' });
 }
 
 app.whenReady().then(() => {
-  const ses = session.defaultSession;
+  const ses = session.fromPartition(PARTITION);
 
   ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
     if (requestingOrigin !== APP_ORIGIN) return false;

@@ -3,15 +3,23 @@ const path = require('path');
 
 if (require('electron-squirrel-startup')) app.quit();
 
-const DESKTOP_VERSION = '1.0.2';
+const DESKTOP_VERSION = '1.0.3';
+const DESKTOP_USER_AGENT = `Tem-Aqui-Gestao/${DESKTOP_VERSION}`;
 const BASE_URL = 'https://tem-aqui-gestao.pages.dev/';
 const APP_URL = `${BASE_URL}?desktop=1&desktop_build=${encodeURIComponent(DESKTOP_VERSION)}`;
 const APP_ORIGIN = new URL(BASE_URL).origin;
 const PARTITION = 'persist:tem-aqui-gestao';
 
+// O nome visual do aplicativo permanece "Tem Aqui Gestão", mas cabeçalhos HTTP
+// precisam ficar restritos a ASCII. O nome acentuado no User-Agent pode ser
+// serializado como Latin-1 pelo Chromium/Electron e quebrar o INSERT da sessão
+// do Supabase (invalid byte sequence for encoding "UTF8": 0xe3 0x6f 0x2f).
+app.userAgentFallback = DESKTOP_USER_AGENT;
+
 async function prepareSession(ses) {
   try { await ses.clearCache(); } catch (_) {}
   try { await ses.clearStorageData({ storages: ['serviceworkers', 'cachestorage'] }); } catch (_) {}
+  try { ses.setUserAgent(DESKTOP_USER_AGENT); } catch (_) {}
 }
 
 async function ensureDesktopContext(win) {
@@ -61,6 +69,7 @@ function createWindow() {
     webPreferences: { partition: PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true, spellcheck: false }
   });
 
+  win.webContents.setUserAgent(DESKTOP_USER_AGENT);
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
   win.webContents.on('did-finish-load', () => { setTimeout(() => ensureDesktopContext(win), 700); });
 
@@ -74,12 +83,17 @@ function createWindow() {
     event.preventDefault(); shell.openExternal(url);
   });
 
-  win.loadURL(APP_URL, { extraHeaders: 'Cache-Control: no-cache, no-store\nPragma: no-cache\n' });
+  win.loadURL(APP_URL, { userAgent: DESKTOP_USER_AGENT, extraHeaders: 'Cache-Control: no-cache, no-store\nPragma: no-cache\n' });
 }
 
 app.whenReady().then(async () => {
   const ses = session.fromPartition(PARTITION);
   await prepareSession(ses);
+
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const requestHeaders = { ...details.requestHeaders, 'User-Agent': DESKTOP_USER_AGENT };
+    callback({ requestHeaders });
+  });
 
   ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
     if (requestingOrigin !== APP_ORIGIN) return false;

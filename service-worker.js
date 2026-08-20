@@ -1,5 +1,6 @@
-const CACHE='tem-aqui-gestao-v1-0-11-hotfix-mobile1';
-const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./pos-enhancements.js','./pos-hid-scanner.js','./universal-runtime.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./orders-deeplink.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
+const CACHE='tem-aqui-gestao-v1-0-12-mobile-clean';
+const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./mobile-bootstrap.js','./pos-enhancements.js','./pos-hid-scanner.js','./universal-runtime.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./orders-deeplink.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
+
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 
@@ -13,6 +14,7 @@ function base64AudioResponse(text){
 self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET')return;
   const u=new URL(e.request.url);
+
   if(u.pathname.endsWith('/tem-aqui-pedido.ogg')){
     e.respondWith(fetch(new URL('./sound1.txt',self.location),{cache:'no-store'}).then(r=>r.text()).then(base64AudioResponse).catch(async()=>{
       const cached=await caches.match('./sound1.txt');
@@ -20,6 +22,7 @@ self.addEventListener('fetch',e=>{
     }));
     return;
   }
+
   if(u.pathname.endsWith('/styles.css')){
     e.respondWith(Promise.all([
       fetch(e.request,{cache:'no-store'}).then(r=>r.text()),
@@ -32,33 +35,38 @@ self.addEventListener('fetch',e=>{
       fetch(new URL('./pwa-install.css',self.location),{cache:'no-store'}).then(r=>r.text())
     ]).then(([base,responsive,uniform,cleanup,barcode,storefront,foldable,installCss])=>{
       const nr=new Response(base+'\n'+responsive+'\n'+uniform+'\n'+cleanup+'\n'+barcode+'\n'+storefront+'\n'+foldable+'\n'+installCss,{status:200,headers:{'Content-Type':'text/css; charset=utf-8','Cache-Control':'no-store'}});
-      caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));return nr;
-    }).catch(()=>caches.match(e.request)));return;
+      caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
+      return nr;
+    }).catch(()=>caches.match(e.request)));
+    return;
   }
+
+  // app.js agora é entregue limpo. O bootstrap móvel é anexado uma única vez
+  // e ele próprio carrega os demais módulos sequencialmente.
   if(u.pathname.endsWith('/app.js')){
     e.respondWith(Promise.all([
       fetch(e.request,{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./pos-enhancements.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./barcode-scanner.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./mobile-ui-fixes.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./dialog-safety-fix.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./storefront-manager.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./foldable-layout.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./pwa-install.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./orders-module.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./orders-permission-ui.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./orders-deeplink.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./pos-hid-scanner.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./universal-runtime.js',self.location),{cache:'no-store'}).then(r=>r.text())
-    ]).then(([base,enh,barcode,mobileFixes,dialogFixes,storefront,foldable,installJs,orders,orderPerms,deepLink,posScanner,universal])=>{
-      const nr=new Response(base+'\n'+enh+'\n'+barcode+'\n'+mobileFixes+'\n'+dialogFixes+'\n'+storefront+'\n'+foldable+'\n'+installJs+'\n'+orders+'\n'+orderPerms+'\n'+deepLink+'\n'+posScanner+'\n'+universal,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
-      caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));return nr;
-    }).catch(()=>caches.match(e.request)));return;
+      fetch(new URL('./mobile-bootstrap.js',self.location),{cache:'no-store'}).then(r=>r.text())
+    ]).then(([base,bootstrap])=>{
+      const nr=new Response(base+'\n;'+bootstrap,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
+      caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
+      return nr;
+    }).catch(()=>caches.match(e.request)));
+    return;
   }
+
   if(e.request.mode==='navigate'||/\.(?:js|html|css)$/.test(u.pathname)){
-    e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{if(r&&r.ok)caches.open(CACHE).then(c=>c.put(e.request,r.clone()));return r;}).catch(()=>caches.match(e.request).then(r=>r||caches.match('./index.html'))));return;
+    e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{
+      if(r&&r.ok)caches.open(CACHE).then(c=>c.put(e.request,r.clone()));
+      return r;
+    }).catch(()=>caches.match(e.request).then(r=>r||caches.match('./index.html'))));
+    return;
   }
-  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(n=>{if(n&&n.ok)caches.open(CACHE).then(c=>c.put(e.request,n.clone()));return n;})));
+
+  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(n=>{
+    if(n&&n.ok)caches.open(CACHE).then(c=>c.put(e.request,n.clone()));
+    return n;
+  })));
 });
 
 self.addEventListener('push',event=>{
@@ -78,7 +86,13 @@ self.addEventListener('notificationclick',event=>{
   const url=new URL(raw,self.location.origin).href;
   event.waitUntil((async()=>{
     const list=await self.clients.matchAll({type:'window',includeUncontrolled:true});
-    for(const c of list){if(new URL(c.url).origin===self.location.origin){await c.focus();if('navigate'in c)await c.navigate(url);return;}}
+    for(const c of list){
+      if(new URL(c.url).origin===self.location.origin){
+        await c.focus();
+        if('navigate'in c)await c.navigate(url);
+        return;
+      }
+    }
     await self.clients.openWindow(url);
   })());
 });

@@ -2,7 +2,6 @@
 'use strict';
 
 function loadCss(href){if(document.querySelector(`link[href^="${href}"]`))return;const l=document.createElement('link');l.rel='stylesheet';l.href=href;document.head.appendChild(l);}
-function loadScript(id,src){return new Promise(resolve=>{if(document.getElementById(id))return resolve(true);const s=document.createElement('script');s.id=id;s.src=src;s.async=false;s.onload=()=>resolve(true);s.onerror=()=>resolve(false);document.body.appendChild(s);});}
 loadCss('barcode-scanner.css?v=4');
 loadCss('customers-layout-fix.css?v=2');
 
@@ -26,10 +25,6 @@ function enhancePdvScanner(){
 const css=document.createElement('style');css.textContent=`.dialog-close-x{position:absolute;right:10px;top:8px;width:38px;height:38px;border:0;border-radius:50%;background:#eef2f6;font-size:26px;line-height:1;color:#344054;z-index:2}.page-back-button{border:0;background:#eef4fb;color:#0b5fc5;border-radius:9px;padding:9px 12px;font-weight:800;margin-right:10px}.product-image-tools{display:grid;gap:8px;margin-top:8px}.product-image-preview{height:150px;border:1px dashed #cfd9e5;border-radius:10px;display:grid;place-items:center;overflow:hidden;background:#fafcff;color:#8794a3}.product-image-preview img{width:100%;height:100%;object-fit:contain}.product-image-upload{display:flex!important;align-items:center;justify-content:center;background:#0b5fc5;color:#fff;border-radius:8px;padding:10px!important;font-weight:800}.product-image-upload input{display:none}.product-image-tools small{color:#718096}@media(max-width:900px){.page-heading{align-items:center!important;flex-wrap:wrap}.page-back-button{order:-2}.page-heading>div{flex:1;min-width:180px}.heading-actions{width:100%}.heading-actions button{flex:1}.management-grid{grid-template-columns:1fr!important}.management-list,.editor-card{min-height:auto!important}.editor-card{scroll-margin-top:16px}.editor-grid{grid-template-columns:1fr!important}}`;document.head.appendChild(css);
 
 function enhance(){enhanceCategoryDialog();ensureBackButtons();improveNewProduct();enhanceProductImage();enhancePdvScanner();}
-async function boot(){
- await loadScript('universalRuntimeMobile','./universal-runtime.js?v=1.0.11');
- await loadScript('posHidScannerMobile','./pos-hid-scanner.js?v=1.0.11');
- enhance();const obs=new MutationObserver(enhance);obs.observe(document.body,{childList:true,subtree:true});
-}
+function boot(){enhance();const obs=new MutationObserver(enhance);obs.observe(document.body,{childList:true,subtree:true});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();

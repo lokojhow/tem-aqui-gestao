@@ -4,8 +4,6 @@
   function forceClose(dialog){
     if(!dialog) return;
     try { if(typeof dialog.close === 'function' && dialog.open) dialog.close('cancel'); } catch (_) {}
-    // Alguns navegadores/WebViews podem manter o atributo open por causa de
-    // listeners antigos. Confere no próximo frame e remove como fallback.
     requestAnimationFrame(()=>{
       try { if(dialog.open) dialog.removeAttribute('open'); } catch (_) {}
     });
@@ -66,8 +64,6 @@
 
   function enhanceAll(){document.querySelectorAll('dialog').forEach(enhanceDialog);}
 
-  // Captura global: funciona inclusive para modais/botões criados depois do boot
-  // e impede listeners antigos do aplicativo de reabrirem ou validarem o form.
   document.addEventListener('click',e=>{
     const btn=e.target.closest?.('button');
     if(!isCancelButton(btn)) return;
@@ -83,7 +79,16 @@
   style.textContent='.universal-dialog-close{position:absolute;right:10px;top:8px;width:38px;height:38px;border:0;border-radius:50%;background:#eef2f6;color:#344054;font-size:26px;line-height:1;z-index:30;cursor:pointer}';
   document.head.appendChild(style);
 
+  function ensureHidScanner(){
+    if(document.getElementById('temAquiHidScanner')) return;
+    const s=document.createElement('script');
+    s.id='temAquiHidScanner';
+    s.src='./pos-hid-scanner.js?v=1.0.10';
+    s.async=false;
+    document.body.appendChild(s);
+  }
+
   const obs=new MutationObserver(enhanceAll);
-  function boot(){enhanceAll();obs.observe(document.body,{childList:true,subtree:true});}
+  function boot(){enhanceAll();obs.observe(document.body,{childList:true,subtree:true});ensureHidScanner();}
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot,{once:true}); else boot();
 })();

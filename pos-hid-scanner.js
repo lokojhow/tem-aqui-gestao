@@ -8,6 +8,8 @@
   let lastKeyAt = 0;
   let resetTimer = 0;
   let processing = false;
+  let cameraStream = null;
+  let cameraTimer = null;
 
   const $ = id => document.getElementById(id);
 
@@ -51,29 +53,24 @@
     el.textContent = message;
     el.style.opacity = '1';
     clearTimeout(el._timer);
-    el._timer = setTimeout(()=>{el.style.opacity='0';}, 900);
+    el._timer = setTimeout(()=>{el.style.opacity='0';}, 1000);
   }
 
   async function addByBarcode(raw){
-    if(processing) return;
+    if(processing) return false;
     processing = true;
     try{
       const code = String(raw || '').trim();
       const search = $('productSearch');
       const grid = $('productGrid');
-      if(!code || !search || !grid) return;
+      if(!code || !search || !grid) return false;
 
-      // Usa o renderizador já existente do PDV para localizar o produto,
-      // preservando preço promocional, estoque e regra de soma do carrinho.
       dispatchInput(search, code);
-      await new Promise(r=>setTimeout(r, 45));
-
+      await new Promise(r=>setTimeout(r, 55));
       let cards = [...grid.querySelectorAll('[data-add-product]')];
       let card = cards.length === 1 ? cards[0] : null;
-
-      // Caso outro módulo tenha atraso na renderização, aguarda mais um ciclo.
       if(!card){
-        await new Promise(r=>setTimeout(r, 85));
+        await new Promise(r=>setTimeout(r, 100));
         cards = [...grid.querySelectorAll('[data-add-product]')];
         card = cards.length === 1 ? cards[0] : null;
       }
@@ -81,62 +78,99 @@
       if(card){
         card.click();
         flash(`Produto adicionado · ${code}`);
-      }else{
-        flash(`Código não encontrado · ${code}`, true);
+        return true;
       }
-
-      // Volta imediatamente ao catálogo completo; não precisa manter foco no campo.
-      dispatchInput(search, '');
-      try { search.blur(); } catch(_) {}
+      flash(`Código não encontrado · ${code}`, true);
+      return false;
     } finally {
+      dispatchInput($('productSearch'), '');
+      try { $('productSearch')?.blur(); } catch(_) {}
       processing = false;
       reset();
     }
   }
 
-  // Leitores USB/Bluetooth normalmente se comportam como teclado e terminam com Enter.
-  // Capturamos a sequência em qualquer ponto da tela, sem exigir foco no campo de busca.
-  document.addEventListener('keydown', e => {
-    if(!posActive() || modalOpen() || e.ctrlKey || e.altKey || e.metaKey) return;
-
-    const now = performance.now();
-    const key = e.key;
-
-    if(key === 'Enter'){
-      if(buffer.length >= MIN_LENGTH){
-        e.preventDefault();
-        e.stopPropagation();
-        addByBarcode(buffer);
-      } else reset();
-      return;
-    }
-
-    if(key.length !== 1 || !/[0-9A-Za-z\-_.]/.test(key)) return;
-
-    // Se a digitação ficou lenta, começa uma nova sequência. Isso evita confundir
-    // digitação humana com leitura rápida do scanner.
-    if(lastKeyAt && now - lastKeyAt > MAX_GAP_MS) buffer = '';
-    buffer += key;
-    lastKeyAt = now;
-    scheduleReset();
-  }, true);
-
-  // Também permite digitar/colar um código no campo e apertar Enter para adicionar direto.
-  function bindSearch(){
-    const input = $('productSearch');
-    if(!input || input.dataset.hidScannerBound === '1') return;
-    input.dataset.hidScannerBound = '1';
-    input.addEventListener('keydown', e => {
-      if(e.key !== 'Enter') return;
-      const code = String(input.value || '').trim();
-      if(code.length < MIN_LENGTH) return;
-      e.preventDefault();
-      e.stopPropagation();
-      addByBarcode(code);
-    }, true);
+  function stopCamera(){
+    clearTimeout(cameraTimer);cameraTimer=null;
+    if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}
+    document.getElementById('posBarcodeCamera')?.remove();
   }
 
+  async function startCamera(){
+    if(!navigator.mediaDevices?.getUserMedia){flash('Câmera não disponível neste aparelho.',true);return;}
+    if(!('BarcodeDetector' in window)){
+      flash('Leitura pela câmera não é suportada neste navegador. Use leitor Bluetooth/USB ou digite o código.',true);
+      $('productSearch')?.focus();
+      return;
+    }
+    stopCamera();
+    const overlay=document.createElement('div');overlay.id='posBarcodeCamera';overlay.className='barcode-camera-overlay';
+    overlay.innerHTML='<div class="barcode-camera-card"><div class="barcode-camera-head"><b>Ler código de barras</b><button type="button" data-pos-camera-close>✕</button></div><div class="barcode-camera-frame"><video autoplay playsinline muted style="width:100%;height:100%;object-fit:cover"></video><div class="barcode-scan-line"></div></div><p>Aponte a câmera para o código. O produto será adicionado automaticamente.</p><button type="button" class="barcode-cancel" data-pos-camera-close>Cancelar</button></div>';
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll('[data-pos-camera-close]').forEach(b=>b.addEventListener('click',stopCamera));
+    try{
+      const formats=await BarcodeDetector.getSupportedFormats().catch(()=>[]);
+      const desired=['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf'];
+      const usable=desired.filter(f=>formats.includes(f));
+      const detector=new BarcodeDetector(usable.length?{formats:usable}:undefined);
+      cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+      const video=overlay.querySelector('video');video.srcObject=cameraStream;await video.play();
+      const tick=async()=>{
+        if(!document.body.contains(overlay))return;
+        try{
+          const codes=await detector.detect(video);
+          const value=codes?.[0]?.rawValue||'';
+          if(value){
+            const ok=await addByBarcode(value);
+            if(ok){stopCamera();return;}
+          }
+        }catch(e){console.warn('POS barcode camera',e);}
+        cameraTimer=setTimeout(tick,180);
+      };
+      tick();
+    }catch(err){
+      stopCamera();
+      flash(err?.name==='NotAllowedError'?'Permita o acesso à câmera para ler o código.':'Não foi possível abrir a câmera.',true);
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if(!posActive() || modalOpen() || e.ctrlKey || e.altKey || e.metaKey) return;
+    const now = performance.now();
+    const key = e.key;
+    if(key === 'Enter'){
+      if(buffer.length >= MIN_LENGTH){e.preventDefault();e.stopPropagation();addByBarcode(buffer);} else reset();
+      return;
+    }
+    if(key.length !== 1 || !/[0-9A-Za-z\-_.]/.test(key)) return;
+    if(lastKeyAt && now - lastKeyAt > MAX_GAP_MS) buffer = '';
+    buffer += key;lastKeyAt = now;scheduleReset();
+  }, true);
+
+  function bindSearch(){
+    const input = $('productSearch');
+    if(input && input.dataset.hidScannerBound !== '1'){
+      input.dataset.hidScannerBound = '1';
+      input.addEventListener('keydown', e => {
+        if(e.key !== 'Enter') return;
+        const code = String(input.value || '').trim();
+        if(code.length < MIN_LENGTH) return;
+        e.preventDefault();e.stopPropagation();addByBarcode(code);
+      }, true);
+    }
+    const btn=$('scanButton');
+    if(btn && btn.dataset.posCameraBound!=='1'){
+      btn.dataset.posCameraBound='1';
+      btn.addEventListener('click',e=>{
+        const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+        if(isTouch && navigator.mediaDevices?.getUserMedia){e.preventDefault();e.stopImmediatePropagation();startCamera();}
+      },true);
+    }
+  }
+
+  window.TemAquiPosScanner={addByBarcode,startCamera,stopCamera};
   const obs = new MutationObserver(bindSearch);
   function boot(){bindSearch();obs.observe(document.body,{childList:true,subtree:true});}
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, {once:true}); else boot();
+  window.addEventListener('pagehide',stopCamera);
 })();

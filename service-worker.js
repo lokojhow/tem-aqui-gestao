@@ -1,5 +1,5 @@
-const CACHE='tem-aqui-gestao-v0-9-5-dialogfix1';
-const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./pos-enhancements.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./orders-deeplink.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
+const CACHE='tem-aqui-gestao-v1-0-11-unified';
+const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./pos-enhancements.js','./pos-hid-scanner.js','./universal-runtime.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./orders-deeplink.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 
@@ -47,9 +47,11 @@ self.addEventListener('fetch',e=>{
       fetch(new URL('./pwa-install.js',self.location),{cache:'no-store'}).then(r=>r.text()),
       fetch(new URL('./orders-module.js',self.location),{cache:'no-store'}).then(r=>r.text()),
       fetch(new URL('./orders-permission-ui.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./orders-deeplink.js',self.location),{cache:'no-store'}).then(r=>r.text())
-    ]).then(([base,enh,barcode,mobileFixes,dialogFixes,storefront,foldable,installJs,orders,orderPerms,deepLink])=>{
-      const nr=new Response(base+'\n'+enh+'\n'+barcode+'\n'+mobileFixes+'\n'+dialogFixes+'\n'+storefront+'\n'+foldable+'\n'+installJs+'\n'+orders+'\n'+orderPerms+'\n'+deepLink,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
+      fetch(new URL('./orders-deeplink.js',self.location),{cache:'no-store'}).then(r=>r.text()),
+      fetch(new URL('./pos-hid-scanner.js',self.location),{cache:'no-store'}).then(r=>r.text()),
+      fetch(new URL('./universal-runtime.js',self.location),{cache:'no-store'}).then(r=>r.text())
+    ]).then(([base,enh,barcode,mobileFixes,dialogFixes,storefront,foldable,installJs,orders,orderPerms,deepLink,posScanner,universal])=>{
+      const nr=new Response(base+'\n'+enh+'\n'+barcode+'\n'+mobileFixes+'\n'+dialogFixes+'\n'+storefront+'\n'+foldable+'\n'+installJs+'\n'+orders+'\n'+orderPerms+'\n'+deepLink+'\n'+posScanner+'\n'+universal,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
       caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));return nr;
     }).catch(()=>caches.match(e.request)));return;
   }

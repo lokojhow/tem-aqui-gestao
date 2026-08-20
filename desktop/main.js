@@ -3,11 +3,11 @@ const path = require('path');
 
 if (require('electron-squirrel-startup')) app.quit();
 
-const DESKTOP_VERSION = '1.0.8';
+const DESKTOP_VERSION = '1.0.9';
 const DESKTOP_APP_NAME = 'TemAquiGestao';
 const DESKTOP_USER_AGENT = `Tem-Aqui-Gestao/${DESKTOP_VERSION}`;
 const LOCAL_APP = path.join(__dirname, '..', 'index.html');
-const PARTITION = 'persist:tem-aqui-gestao-v108';
+const PARTITION = 'persist:tem-aqui-gestao-v109';
 const SUPABASE_HOST = 'izbkcdimyfoxikpzefba.supabase.co';
 
 app.setName(DESKTOP_APP_NAME);
@@ -44,9 +44,9 @@ async function ensureDesktopContext(win) {
           window.__TEM_AQUI_DESKTOP_VERSION__='${DESKTOP_VERSION}';
 
           const ensureDesktopStyle=()=>{
-            if(document.getElementById('desktopPdvFix108'))return;
+            if(document.getElementById('desktopPdvFix109'))return;
             const style=document.createElement('style');
-            style.id='desktopPdvFix108';
+            style.id='desktopPdvFix109';
             style.textContent='html[data-desktop-app="1"] [data-view="pos"] .product-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;align-content:start!important;grid-auto-rows:auto!important}'+
               'html[data-desktop-app="1"] [data-view="pos"] .product-card{height:172px!important;min-height:172px!important;max-height:172px!important;overflow:hidden!important;padding:8px!important}'+
               'html[data-desktop-app="1"] [data-view="pos"] .product-icon,html[data-desktop-app="1"] [data-view="pos"] .product-visual{width:100%!important;height:84px!important;min-height:84px!important;max-height:84px!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;background:#fff!important;border-radius:8px!important}'+
@@ -65,10 +65,9 @@ async function ensureDesktopContext(win) {
           });
 
           ensureDesktopStyle();
-          await loadLocalScript('desktopDialogFix108','./dialog-safety-fix.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopPosEnhancements108','./pos-enhancements.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopOrdersModule108','./orders-module.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopOrdersReconnect108','./orders-session-reconnect.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopDialogFix109','./dialog-safety-fix.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopPosEnhancements109','./pos-enhancements.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopOrdersSync109','./orders-desktop-sync.js?v=desktop-${DESKTOP_VERSION}');
 
           const waitBackend=async()=>{for(let i=0;i<60;i++){if(window.GestaoBackend?.getSession&&window.GestaoBackend?.context)return true;await new Promise(r=>setTimeout(r,150));}return false;};
           if(!await waitBackend()){
@@ -93,7 +92,7 @@ async function ensureDesktopContext(win) {
             setTimeout(()=>{
               ensureDesktopStyle();
               document.getElementById('marketplaceOrdersRoute')?.removeAttribute('hidden');
-            },1200);
+            },1000);
           }else{
             const status=document.getElementById('centralStatus');
             if(status)status.textContent='Esta conta não possui uma loja autorizada no Tem Aqui Gestão.';

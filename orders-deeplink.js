@@ -61,4 +61,12 @@
     if((document.getElementById('mobileMarketplaceOrders')&&document.getElementById('mobileCashShortcut'))||++tries>30)clearInterval(timer);
   },400);
   window.addEventListener('pageshow',openRequestedOrder);
+
+  if(!document.getElementById('gestaoDeliveryTrackingLoader')){
+    const script=document.createElement('script');
+    script.id='gestaoDeliveryTrackingLoader';
+    script.src='./orders-delivery-tracking.js?v=1.0.0';
+    script.defer=true;
+    document.body.appendChild(script);
+  }
 })();

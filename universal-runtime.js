@@ -91,6 +91,11 @@ async function closeCashFixed(){
 
 function injectStyle(){if($('universalRuntimeStyle'))return;const s=document.createElement('style');s.id='universalRuntimeStyle';s.textContent=`.feature-strip .feature-shortcut{appearance:none;border:0;background:transparent;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;min-width:0;color:inherit;padding:8px 10px;border-radius:10px}.feature-strip .feature-shortcut:hover{background:#f1f5f9}.feature-copy{display:flex;flex-direction:column;min-width:0}.feature-copy b,.feature-copy small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media(max-width:820px){.feature-strip{overflow-x:auto!important;display:flex!important}.feature-strip .feature-shortcut{min-width:155px;flex:0 0 auto}#shortcutSettingsList{grid-template-columns:1fr!important}}`;document.head.appendChild(s);}
 
+function loadDeliveryTracking(){
+  if(document.getElementById('gestaoDeliveryTrackingLoader'))return;
+  const s=document.createElement('script');s.id='gestaoDeliveryTrackingLoader';s.src='./orders-delivery-tracking.js?v=1.0.0';s.defer=true;document.body.appendChild(s);
+}
+
 document.addEventListener('click',e=>{
   const top=e.target.closest?.('[data-top-shortcut]');if(top){e.preventDefault();runShortcut(top.dataset.topShortcut);return;}
   if(e.target.closest?.('#saveShortcutSettings')){e.preventDefault();saveShortcuts();return;}
@@ -98,6 +103,6 @@ document.addEventListener('click',e=>{
   if(e.target.closest?.('#closeCashButton')){e.preventDefault();e.stopImmediatePropagation();closeCashFixed();return;}
 },true);
 
-function boot(){injectStyle();renderStrip();injectShortcutSettings();refreshCash();const obs=new MutationObserver(()=>{injectShortcutSettings();});obs.observe(document.body,{childList:true,subtree:true});window.addEventListener('storage',e=>{if(e.key?.startsWith('tag-shortcuts-'))renderStrip();});}
+function boot(){injectStyle();renderStrip();injectShortcutSettings();refreshCash();loadDeliveryTracking();const obs=new MutationObserver(()=>{injectShortcutSettings();});obs.observe(document.body,{childList:true,subtree:true});window.addEventListener('storage',e=>{if(e.key?.startsWith('tag-shortcuts-'))renderStrip();});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();

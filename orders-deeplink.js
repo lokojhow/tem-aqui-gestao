@@ -20,6 +20,19 @@
     return true;
   }
 
+  function ensureMobileCashShortcut(){
+    const settings=document.querySelector('[data-view="settings"] .settings-layout');
+    const cashRoute=document.querySelector('.side-route[data-route="cash"]');
+    if(!settings||!cashRoute||document.getElementById('mobileCashShortcut'))return false;
+    const card=document.createElement('div');
+    card.id='mobileCashShortcut';
+    card.className='data-card settings-card';
+    card.innerHTML='<h2>💰 Caixa</h2><p style="margin:0 0 12px;color:#667085">Abra, consulte ou feche o caixa deste ponto de venda.</p><button type="button" class="green full">💰 Abrir / Fechar Caixa</button>';
+    card.querySelector('button').addEventListener('click',()=>cashRoute.click());
+    settings.appendChild(card);
+    return true;
+  }
+
   function syncMobileBadge(){
     const src=document.getElementById('marketplaceOrderBadge');
     const dst=document.getElementById('mobileMarketplaceOrderBadge');
@@ -28,6 +41,7 @@
 
   function openRequestedOrder(){
     ensureMobileOrdersShortcut();
+    ensureMobileCashShortcut();
     syncMobileBadge();
     const params=new URLSearchParams(location.search);
     const orderId=params.get('order');
@@ -44,7 +58,7 @@
   let tries=0;
   const timer=setInterval(()=>{
     openRequestedOrder();
-    if(document.getElementById('mobileMarketplaceOrders')||++tries>30)clearInterval(timer);
+    if((document.getElementById('mobileMarketplaceOrders')&&document.getElementById('mobileCashShortcut'))||++tries>30)clearInterval(timer);
   },400);
   window.addEventListener('pageshow',openRequestedOrder);
 })();

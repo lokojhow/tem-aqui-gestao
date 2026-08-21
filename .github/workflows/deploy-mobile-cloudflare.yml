@@ -1,0 +1,29 @@
+name: Publicar Tem Aqui Gestão no Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'desktop/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Preparar PWA
+        run: |
+          mkdir -p dist-web
+          find . -maxdepth 1 -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.txt' -o -name '*.ogg' \) -exec cp {} dist-web/ \;
+
+      - name: Publicar Worker estático
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --assets=dist-web --name=tem-aqui-gestao

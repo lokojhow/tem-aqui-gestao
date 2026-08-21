@@ -1,7 +1,7 @@
 {
   "name": "tem-aqui-gestao-desktop",
   "productName": "Tem Aqui Gestão",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Tem Aqui Gestão para Windows",
   "main": "desktop/main.js",
   "author": "Tem Aqui",

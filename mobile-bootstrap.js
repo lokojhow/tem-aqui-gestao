@@ -6,16 +6,17 @@
   window.__TAG_MOBILE_BOOTSTRAP__ = true;
 
   const modules = [
-    './pos-enhancements.js?v=1.0.14-mobile-safe',
-    './barcode-scanner.js?v=1.0.14-mobile-safe',
-    './mobile-ui-fixes.js?v=1.0.14-mobile-safe',
-    './dialog-safety-fix.js?v=1.0.14-mobile-safe',
-    './storefront-manager.js?v=1.0.14-mobile-safe',
-    './foldable-layout.js?v=1.0.14-mobile-safe',
-    './pwa-install.js?v=1.0.14-mobile-safe',
-    './orders-module.js?v=1.0.14-mobile-safe',
-    './orders-permission-ui.js?v=1.0.14-mobile-safe',
-    './orders-deeplink.js?v=1.0.14-mobile-safe'
+    './mobile-session-rescue.js?v=1.0.15-mobile-unlock',
+    './pos-enhancements.js?v=1.0.15-mobile-unlock',
+    './barcode-scanner.js?v=1.0.15-mobile-unlock',
+    './mobile-ui-fixes.js?v=1.0.15-mobile-unlock',
+    './dialog-safety-fix.js?v=1.0.15-mobile-unlock',
+    './storefront-manager.js?v=1.0.15-mobile-unlock',
+    './foldable-layout.js?v=1.0.15-mobile-unlock',
+    './pwa-install.js?v=1.0.15-mobile-unlock',
+    './orders-module.js?v=1.0.15-mobile-unlock',
+    './orders-permission-ui.js?v=1.0.15-mobile-unlock',
+    './orders-deeplink.js?v=1.0.15-mobile-unlock'
   ];
 
   function load(src) {

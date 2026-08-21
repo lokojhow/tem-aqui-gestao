@@ -1,11 +1,10 @@
-const CACHE='tem-aqui-gestao-v1-0-14-mobile-safe';
-const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./mobile-bootstrap.js','./pos-enhancements.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./orders-deeplink.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
+const CACHE='tem-aqui-gestao-v1-0-15-mobile-unlock';
+const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./mobile-bootstrap.js','./mobile-session-rescue.js','./pos-enhancements.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./orders-deeplink.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 
 function base64AudioResponse(text){const b64=String(text||'').replace(/\s+/g,'');const raw=atob(b64);const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));return new Response(bytes,{status:200,headers:{'Content-Type':'audio/ogg','Cache-Control':'public,max-age=31536000,immutable'}});}
-
 async function networkFirst(request,fallback){try{const response=await fetch(request,{cache:'no-store'});if(response&&response.ok)caches.open(CACHE).then(c=>c.put(request,response.clone()));return response;}catch(_){return (await caches.match(request))||(fallback?await caches.match(fallback):null)||new Response('',{status:503});}}
 
 async function navigationResponse(request){
@@ -13,7 +12,7 @@ async function navigationResponse(request){
     const response=await fetch(request,{cache:'no-store'});
     if(!response.ok)return response;
     let html=await response.text();
-    if(!html.includes('mobile-bootstrap.js')) html=html.replace('</body>','<script src="mobile-bootstrap.js?v=1.0.14-mobile-safe"></script>\n</body>');
+    if(!html.includes('mobile-bootstrap.js')) html=html.replace('</body>','<script src="mobile-bootstrap.js?v=1.0.15-mobile-unlock"></script>\n</body>');
     const out=new Response(html,{status:200,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store, no-cache, must-revalidate'}});
     caches.open(CACHE).then(c=>c.put('./index.html',out.clone()));
     return out;
@@ -21,7 +20,7 @@ async function navigationResponse(request){
     const cached=await caches.match('./index.html');
     if(!cached)return new Response('',{status:503});
     let html=await cached.text();
-    if(!html.includes('mobile-bootstrap.js')) html=html.replace('</body>','<script src="mobile-bootstrap.js?v=1.0.14-mobile-safe"></script>\n</body>');
+    if(!html.includes('mobile-bootstrap.js')) html=html.replace('</body>','<script src="mobile-bootstrap.js?v=1.0.15-mobile-unlock"></script>\n</body>');
     return new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
   }
 }

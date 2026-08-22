@@ -1,5 +1,5 @@
-const CACHE='tem-aqui-gestao-mobile-product-edit-v2';
-const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./mobile-product-edit.css','./pos-enhancements.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./orders-deeplink.js','./mobile-product-edit.js','./share-universal.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
+const CACHE='tem-aqui-gestao-mobile-order-flow-v3';
+const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./mobile-product-edit.css','./pos-enhancements.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-permission-ui.js','./orders-deeplink.js','./mobile-product-edit.js','./share-universal.js','./mobile-order-flow.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 
@@ -50,9 +50,10 @@ self.addEventListener('fetch',e=>{
       fetch(new URL('./orders-permission-ui.js',self.location),{cache:'no-store'}).then(r=>r.text()),
       fetch(new URL('./orders-deeplink.js',self.location),{cache:'no-store'}).then(r=>r.text()),
       fetch(new URL('./mobile-product-edit.js',self.location),{cache:'no-store'}).then(r=>r.text()),
-      fetch(new URL('./share-universal.js',self.location),{cache:'no-store'}).then(r=>r.text())
-    ]).then(([base,enh,barcode,mobileFixes,dialogFixes,storefront,foldable,installJs,orders,orderPerms,deepLink,productEdit,shareUniversal])=>{
-      const nr=new Response(base+'\n'+enh+'\n'+barcode+'\n'+mobileFixes+'\n'+dialogFixes+'\n'+storefront+'\n'+foldable+'\n'+installJs+'\n'+orders+'\n'+orderPerms+'\n'+deepLink+'\n'+productEdit+'\n'+shareUniversal,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
+      fetch(new URL('./share-universal.js',self.location),{cache:'no-store'}).then(r=>r.text()),
+      fetch(new URL('./mobile-order-flow.js',self.location),{cache:'no-store'}).then(r=>r.text())
+    ]).then(([base,enh,barcode,mobileFixes,dialogFixes,storefront,foldable,installJs,orders,orderPerms,deepLink,productEdit,shareUniversal,mobileOrderFlow])=>{
+      const nr=new Response(base+'\n'+enh+'\n'+barcode+'\n'+mobileFixes+'\n'+dialogFixes+'\n'+storefront+'\n'+foldable+'\n'+installJs+'\n'+orders+'\n'+orderPerms+'\n'+deepLink+'\n'+productEdit+'\n'+shareUniversal+'\n'+mobileOrderFlow,{status:200,headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
       caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));return nr;
     }).catch(()=>caches.match(e.request)));return;
   }

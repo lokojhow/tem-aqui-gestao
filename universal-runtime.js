@@ -95,6 +95,10 @@ function loadDeliveryTracking(){
   if(document.getElementById('gestaoDeliveryTrackingLoader'))return;
   const s=document.createElement('script');s.id='gestaoDeliveryTrackingLoader';s.src='./orders-delivery-tracking.js?v=1.0.0';s.defer=true;document.body.appendChild(s);
 }
+function loadDeliveryPins(){
+  if(document.getElementById('gestaoDeliveryPinLoader'))return;
+  const s=document.createElement('script');s.id='gestaoDeliveryPinLoader';s.src='./delivery-store-pin.js?v=1.0.0';s.defer=true;document.body.appendChild(s);
+}
 
 document.addEventListener('click',e=>{
   const top=e.target.closest?.('[data-top-shortcut]');if(top){e.preventDefault();runShortcut(top.dataset.topShortcut);return;}
@@ -103,6 +107,6 @@ document.addEventListener('click',e=>{
   if(e.target.closest?.('#closeCashButton')){e.preventDefault();e.stopImmediatePropagation();closeCashFixed();return;}
 },true);
 
-function boot(){injectStyle();renderStrip();injectShortcutSettings();refreshCash();loadDeliveryTracking();const obs=new MutationObserver(()=>{injectShortcutSettings();});obs.observe(document.body,{childList:true,subtree:true});window.addEventListener('storage',e=>{if(e.key?.startsWith('tag-shortcuts-'))renderStrip();});}
+function boot(){injectStyle();renderStrip();injectShortcutSettings();refreshCash();loadDeliveryTracking();loadDeliveryPins();const obs=new MutationObserver(()=>{injectShortcutSettings();});obs.observe(document.body,{childList:true,subtree:true});window.addEventListener('storage',e=>{if(e.key?.startsWith('tag-shortcuts-'))renderStrip();});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();

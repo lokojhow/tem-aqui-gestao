@@ -38,7 +38,7 @@
     let info=actions.querySelector('.gestao-delivery-lock');
     if(!info){info=document.createElement('div');info.className='gestao-delivery-lock';actions.prepend(info);}
     if(o.status==='ready_for_pickup') info.textContent=row?`🛵 ${STATUS[row.job_status]||row.job_status}`:'🛵 Pedido pronto. Aguardando entregador.';
-    else if(['dispatched','out_for_delivery'].includes(o.status)) info.textContent='🛵 Entrega em andamento. A conclusão será feita pelo PIN do cliente.';
+    else if(['dispatched','out_for_delivery'].includes(o.status)) info.textContent='🛵 Entrega em andamento. A conclusão será feita pelo Tem Aqui Entregas.';
     else info.remove();
   }
   function render(o,row){
@@ -56,8 +56,12 @@
   document.addEventListener('click',e=>{
     const b=e.target.closest('#ordersDetail [data-set-status="out_for_delivery"],#ordersDetail [data-set-status="delivered"]');
     if(!b||!current||current.delivery_type==='pickup')return;
-    e.preventDefault();e.stopImmediatePropagation();alert('Nesta entrega, a saída e a conclusão são controladas pelo Tem Aqui Entregas e pelos PINs de coleta/entrega.');
+    e.preventDefault();e.stopImmediatePropagation();alert('Nesta entrega, a saída e a conclusão são controladas pelo Tem Aqui Entregas.');
   },true);
-  function start(){refresh();clearInterval(timer);timer=setInterval(refresh,4000);window.addEventListener('pageshow',refresh);}
+  function loadEnhancements(){
+    if(document.getElementById('gestaoLogisticsEnhancementsLoader')||window.__GESTAO_LOGISTICS_ENHANCEMENTS__)return;
+    const s=document.createElement('script');s.id='gestaoLogisticsEnhancementsLoader';s.src='./orders-logistics-enhancements.js?v=1.0.16-logistics';s.defer=true;document.body.appendChild(s);
+  }
+  function start(){loadEnhancements();refresh();clearInterval(timer);timer=setInterval(refresh,4000);window.addEventListener('pageshow',refresh);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

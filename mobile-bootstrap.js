@@ -6,17 +6,19 @@
   window.__TAG_MOBILE_BOOTSTRAP__ = true;
 
   const modules = [
-    './mobile-session-rescue.js?v=1.0.15-mobile-unlock',
-    './pos-enhancements.js?v=1.0.15-mobile-unlock',
-    './barcode-scanner.js?v=1.0.15-mobile-unlock',
-    './mobile-ui-fixes.js?v=1.0.15-mobile-unlock',
-    './dialog-safety-fix.js?v=1.0.15-mobile-unlock',
-    './storefront-manager.js?v=1.0.15-mobile-unlock',
-    './foldable-layout.js?v=1.0.15-mobile-unlock',
-    './pwa-install.js?v=1.0.15-mobile-unlock',
-    './orders-module.js?v=1.0.15-mobile-unlock',
-    './orders-permission-ui.js?v=1.0.15-mobile-unlock',
-    './orders-deeplink.js?v=1.0.15-mobile-unlock'
+    './mobile-session-rescue.js?v=1.0.16-logistics',
+    './pos-enhancements.js?v=1.0.16-logistics',
+    './barcode-scanner.js?v=1.0.16-logistics',
+    './mobile-ui-fixes.js?v=1.0.16-logistics',
+    './dialog-safety-fix.js?v=1.0.16-logistics',
+    './storefront-manager.js?v=1.0.16-logistics',
+    './foldable-layout.js?v=1.0.16-logistics',
+    './pwa-install.js?v=1.0.16-logistics',
+    './orders-module.js?v=1.0.16-logistics',
+    './orders-permission-ui.js?v=1.0.16-logistics',
+    './orders-deeplink.js?v=1.0.16-logistics',
+    './orders-delivery-tracking.js?v=1.0.16-logistics',
+    './orders-logistics-enhancements.js?v=1.0.16-logistics'
   ];
 
   function load(src) {

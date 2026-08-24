@@ -10,6 +10,7 @@
   let orders = [];
   let online = { online_count: 0, city: '' };
   let timer = null;
+  let refreshing = false;
 
   async function getClient() {
     if (client) return client;
@@ -17,6 +18,7 @@
     const session = await b?.getSession?.();
     if (!session?.access_token || !session?.refresh_token) throw new Error('Faça login no Gestão.');
     const c = cfg();
+    if (!window.supabase?.createClient || !c.url || !(c.publishableKey || c.anonKey)) throw new Error('Banco central não configurado.');
     client = window.supabase.createClient(c.url, c.publishableKey || c.anonKey, { auth: { persistSession: false, autoRefreshToken: true, detectSessionInUrl: false } });
     const r = await client.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token });
     if (r.error) throw r.error;
@@ -67,10 +69,13 @@
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || '')}`;
   }
 
+  function setHtmlIfChanged(el, html) {
+    if (el && el.innerHTML !== html) el.innerHTML = html;
+  }
+
   function enhanceRows() {
     document.querySelectorAll('#ordersList [data-open-order]').forEach(row => {
-      const id = row.dataset.openOrder;
-      const o = orders.find(x => String(x.id) === String(id));
+      const o = orders.find(x => String(x.id) === String(row.dataset.openOrder));
       if (!o || o.delivery_type === 'pickup') return;
       const host = row.querySelector('.order-main');
       if (!host) return;
@@ -80,7 +85,8 @@
         address.className = 'order-address-preview';
         host.appendChild(address);
       }
-      address.textContent = `📍 Entrega: ${o.delivery_address || 'Endereço não informado — confirme antes de aceitar'}`;
+      const text = `📍 Entrega: ${o.delivery_address || 'Endereço não informado — confirme antes de aceitar'}`;
+      if (address.textContent !== text) address.textContent = text;
     });
   }
 
@@ -98,12 +104,13 @@
         grid.appendChild(card);
       }
       const address = o.delivery_address || 'Endereço não informado';
-      card.innerHTML = `<span>📍 LOCAL DA ENTREGA — confira antes de aceitar</span><b>${esc(address)}</b>${o.delivery_address ? `<a target="_blank" rel="noopener" href="${mapsUrl(o.delivery_address)}">Abrir localização no mapa</a>` : ''}`;
+      const html = `<span>📍 LOCAL DA ENTREGA — confira antes de aceitar</span><b>${esc(address)}</b>${o.delivery_address ? `<a target="_blank" rel="noopener" href="${mapsUrl(o.delivery_address)}">Abrir localização no mapa</a>` : ''}`;
+      setHtmlIfChanged(card, html);
     }
 
     const whatsapp = detail.querySelector('[data-whatsapp]');
     if (whatsapp) {
-      whatsapp.textContent = '💬 Falar com cliente no WhatsApp';
+      if (whatsapp.textContent !== '💬 Falar com cliente no WhatsApp') whatsapp.textContent = '💬 Falar com cliente no WhatsApp';
       whatsapp.title = 'Abrir conversa com o cliente';
     }
 
@@ -117,9 +124,10 @@
       }
       const n = Number(online.online_count || 0);
       box.classList.toggle('zero', n === 0);
-      box.innerHTML = n > 0
+      const html = n > 0
         ? `🛵 <b>${n} entregador${n === 1 ? '' : 'es'} online</b>${online.city ? ` em ${esc(online.city)}` : ''}<small>Há entregadores disponíveis para receber a corrida.</small>`
         : `⚠️ <b>Nenhum entregador online${online.city ? ` em ${esc(online.city)}` : ''}</b><small>Considere combinar retirada com o cliente ou organizar uma entrega própria para não perder a venda.</small>`;
+      setHtmlIfChanged(box, html);
     }
   }
 
@@ -140,6 +148,8 @@
   }, true);
 
   async function refresh() {
+    if (refreshing) return;
+    refreshing = true;
     try {
       style();
       await loadData();
@@ -147,6 +157,8 @@
       enhanceDetail();
     } catch (e) {
       console.warn('Logística Gestão:', e);
+    } finally {
+      refreshing = false;
     }
   }
 
@@ -154,8 +166,10 @@
     refresh();
     clearInterval(timer);
     timer = setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 5000);
-    const obs = new MutationObserver(() => { enhanceRows(); enhanceDetail(); });
-    obs.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('click', e => {
+      if (e.target.closest?.('[data-open-order],[data-set-status],[data-order-filter]')) setTimeout(() => { enhanceRows(); enhanceDetail(); }, 120);
+    });
+    window.addEventListener('pageshow', refresh);
     window.addEventListener('storage', e => { if (e.key === 'tag-pref-store') { store = null; refresh(); } });
   }
 

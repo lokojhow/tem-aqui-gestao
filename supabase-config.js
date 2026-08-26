@@ -1,18 +1,14 @@
-/* Tem Aqui Gestão V0.9.1
-   Usa o mesmo banco central do Tem Aqui.
-   IMPORTANTE: nunca coloque service_role ou senha de administrador neste arquivo.
-*/
+/* Tem Aqui Gestão — banco central compartilhado */
 window.TEM_AQUI_SUPABASE = window.TEM_AQUI_SUPABASE || {
   url: 'https://izbkcdimyfoxikpzefba.supabase.co',
   publishableKey: 'sb_publishable_tdAezNylaI1TubgCpDznnQ_3u6AtaiY'
 };
 
-/* Correções de interface carregadas separadamente para preservar o app principal. */
+/* Extensões de interface carregadas separadamente para preservar o núcleo. */
 (() => {
-  if (document.querySelector('script[data-tem-aqui-mobile-fixes]')) return;
-  const script = document.createElement('script');
-  script.src = 'mobile-ui-fixes.js?v=1';
-  script.defer = true;
-  script.dataset.temAquiMobileFixes = '1';
-  document.head.appendChild(script);
+  const loadScript=(src,key)=>{if(document.querySelector(`script[data-${key}]`))return;const s=document.createElement('script');s.src=src;s.defer=true;s.dataset[key]='1';document.head.appendChild(s)};
+  const loadCss=(href,key)=>{if(document.querySelector(`link[data-${key}]`))return;const l=document.createElement('link');l.rel='stylesheet';l.href=href;l.dataset[key]='1';document.head.appendChild(l)};
+  loadScript('mobile-ui-fixes.js?v=2','temAquiMobileFixes');
+  loadCss('customers-layout-fix.css?v=2','temAquiCustomersCss');
+  loadScript('customers-credit-v2.js?v=2','temAquiCustomersCredit');
 })();

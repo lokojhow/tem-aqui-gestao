@@ -1,0 +1,2 @@
+Build Windows installer with Clientes/Ficha ranking, overdue filters, historical debt entry and editable credit movements.
+Generated: 2026-08-26

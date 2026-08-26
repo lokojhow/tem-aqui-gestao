@@ -1,0 +1,1 @@
+Gera instalador Windows com correção da ficha de clientes, lançamentos antigos por data e lançamentos em sequência.

@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - 'desktop/**'
+      - '*.js'
+      - '*.css'
+      - 'index.html'
       - 'package.json'
       - 'forge.config.js'
       - '.github/workflows/windows-desktop-build.yml'

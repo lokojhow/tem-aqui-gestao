@@ -2,11 +2,12 @@ const { app, dialog, net, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-const RELEASE_API = 'https://api.github.com/repos/lokojhow/tem-aqui-gestao/releases/tags/windows-latest';
+const VERSION_URL = 'https://github.com/lokojhow/tem-aqui-gestao/releases/download/windows-latest/windows-version.txt';
+const INSTALLER_URL = 'https://github.com/lokojhow/tem-aqui-gestao/releases/download/windows-latest/Tem-Aqui-Gestao-Setup.exe';
 let checking = false;
 
 function parts(v) {
-  return String(v || '0').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+  return String(v || '0').replace(/^v/i, '').trim().split('.').map(n => parseInt(n, 10) || 0);
 }
 function newer(remote, local) {
   const a = parts(remote), b = parts(local);
@@ -17,15 +18,12 @@ function newer(remote, local) {
   return false;
 }
 async function latestRelease() {
-  const r = await net.fetch(RELEASE_API, { headers: { 'User-Agent': 'Tem-Aqui-Gestao-Updater' } });
+  const r = await net.fetch(`${VERSION_URL}?t=${Date.now()}`, { cache: 'no-store' });
   if (!r.ok) throw new Error(`Não foi possível consultar atualizações (${r.status}).`);
-  const data = await r.json();
-  const body = String(data.body || '');
-  const m = body.match(/version\s*=\s*([0-9]+\.[0-9]+\.[0-9]+)/i);
-  const version = m?.[1] || String(data.name || '').match(/([0-9]+\.[0-9]+\.[0-9]+)/)?.[1] || '';
-  const asset = (data.assets || []).find(a => /\.exe$/i.test(a.name) && /Tem-Aqui-Gestao/i.test(a.name)) || (data.assets || []).find(a => /\.exe$/i.test(a.name));
-  if (!version || !asset?.browser_download_url) throw new Error('A versão mais recente ainda não possui instalador Windows publicado.');
-  return { version, url: asset.browser_download_url, name: asset.name };
+  const text = (await r.text()).trim();
+  const version = text.match(/([0-9]+\.[0-9]+\.[0-9]+)/)?.[1] || '';
+  if (!version) throw new Error('A versão publicada não pôde ser identificada.');
+  return { version, url: INSTALLER_URL, name: 'Tem-Aqui-Gestao-Setup.exe' };
 }
 async function injectUpdater(win) {
   try {
@@ -73,7 +71,7 @@ async function check(win, interactive = true) {
     });
     if (ans.response !== 0) return;
     await setRendererStatus(win, `Baixando versão ${rel.version}...`);
-    const response = await net.fetch(rel.url, { headers: { 'User-Agent': 'Tem-Aqui-Gestao-Updater' } });
+    const response = await net.fetch(`${rel.url}?t=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Falha ao baixar o instalador (${response.status}).`);
     const out = path.join(app.getPath('temp'), `Tem-Aqui-Gestao-${rel.version}-Setup.exe`);
     fs.writeFileSync(out, Buffer.from(await response.arrayBuffer()));

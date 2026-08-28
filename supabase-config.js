@@ -12,4 +12,6 @@ window.TEM_AQUI_SUPABASE = window.TEM_AQUI_SUPABASE || {
   loadCss('customers-layout-fix.css?v=5','temAquiCustomersCss');
   loadScript('customers-credit-v2.js?v=5','temAquiCustomersCredit');
   loadScript('customers-list-v3.js?v=2','temAquiCustomersListV3');
+  loadCss('cash-dashboard-v2.css?v=1','temAquiCashDashboardCss');
+  loadScript('cash-dashboard-v2.js?v=1','temAquiCashDashboard');
 })();

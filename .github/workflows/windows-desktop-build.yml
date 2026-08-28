@@ -34,6 +34,7 @@ jobs:
           $version = "1.0.${{ github.run_number }}"
           npm version $version --no-git-tag-version
           "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Set-Content -Path "windows-version.txt" -Value $version -NoNewline
 
       - name: Instalar dependências
         run: npm install
@@ -54,6 +55,7 @@ jobs:
           name: Tem-Aqui-Gestao-Windows
           path: |
             Tem-Aqui-Gestao-Setup.exe
+            windows-version.txt
             out/make/**/*.nupkg
           if-no-files-found: error
           retention-days: 30
@@ -66,8 +68,8 @@ jobs:
           $notes = "version=$env:BUILD_VERSION`n`nAtualização automática do Tem Aqui Gestão para Windows."
           gh release view windows-latest --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create windows-latest "Tem-Aqui-Gestao-Setup.exe" --repo $env:GITHUB_REPOSITORY --title "Tem Aqui Gestão Windows $env:BUILD_VERSION" --notes $notes --target $env:GITHUB_SHA
+            gh release create windows-latest "Tem-Aqui-Gestao-Setup.exe" "windows-version.txt" --repo $env:GITHUB_REPOSITORY --title "Tem Aqui Gestão Windows $env:BUILD_VERSION" --notes $notes --target $env:GITHUB_SHA
           } else {
             gh release edit windows-latest --repo $env:GITHUB_REPOSITORY --title "Tem Aqui Gestão Windows $env:BUILD_VERSION" --notes $notes
-            gh release upload windows-latest "Tem-Aqui-Gestao-Setup.exe" --repo $env:GITHUB_REPOSITORY --clobber
+            gh release upload windows-latest "Tem-Aqui-Gestao-Setup.exe" "windows-version.txt" --repo $env:GITHUB_REPOSITORY --clobber
           }

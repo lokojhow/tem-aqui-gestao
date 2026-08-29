@@ -200,13 +200,9 @@
               <div><span class="central-dot" id="centralDot"></span><div><h2>Banco Central Tem Aqui</h2><small id="centralStatus">Ainda não conectado.</small></div></div>
               <span class="central-mode" id="centralMode">LOCAL</span>
             </div>
-            <label>Comércio atual<select id="centralStoreSelect"><option value="">Nenhuma loja conectada</option></select></label>
-            <div class="central-actions">
-              <button id="centralLoginButton" class="dark">Entrar no banco</button>
-              <button id="centralSyncButton" class="green">↻ Sincronizar agora</button>
-              <button id="centralLogoutButton" class="light-button" hidden>Sair</button>
-            </div>
-            <p class="central-help">Quando o Supabase do Tem Aqui for conectado, produtos, lojas e equipe passam a vir do banco central. Os dados locais continuam como segurança até a migração ser conferida.</p>
+            <label>Comércio atual<select id="centralStoreSelect"></select></label>
+            <div class="central-actions"><button id="centralLoginButton" class="dark">Entrar no banco</button><button id="centralSyncButton" class="green">↻ Sincronizar agora</button><button id="centralLogoutButton">Sair</button></div>
+            <p>Quando o Supabase do Tem Aqui for conectado, produtos, lojas e equipe passam a vir do banco central. Os dados locais continuam como segurança até a migração ser conferida.</p>
             <button id="openStaffFromSettings" class="light-button full">👥 Configurar funcionários e permissões</button>
           </div>
         </div>
@@ -216,142 +212,40 @@
 </div>
 
 <div class="mobile-bottom-nav">
-  <button data-route="pos" class="side-route active"><span>🛒</span>PDV</button><button data-route="customers" class="side-route"><span>♙</span>Clientes</button><button data-route="products" class="side-route"><span>▧</span>Produtos</button><button data-route="reports" class="side-route"><span>▥</span>Relatórios</button><button data-route="settings" class="side-route"><span>⚙</span>Ajustes</button>
+  <button class="mobile-route active" data-route="pos"><span>🛒</span>PDV</button>
+  <button class="mobile-route" data-route="customers"><span>♙</span>Clientes</button>
+  <button class="mobile-route" data-route="products"><span>▧</span>Produtos</button>
+  <button class="mobile-route" data-route="reports"><span>▥</span>Relatórios</button>
+  <button class="mobile-route" data-route="settings"><span>⚙</span>Ajustes</button>
 </div>
-
-
-
 
 <dialog id="staffDialog" class="staff-dialog">
   <form method="dialog" id="staffForm">
-    <h2 id="staffDialogTitle">Novo funcionário</h2>
-    <input type="hidden" id="staffId">
+    <div class="staff-dialog-head"><div><small>FUNCIONÁRIOS E ACESSOS</small><h2 id="staffDialogTitle">Novo funcionário</h2></div><button type="button" id="closeStaffDialog" class="icon-close">×</button></div>
+    <input type="hidden" id="staffMemberId"><input type="hidden" id="staffUserId">
     <div class="staff-form-grid">
-      <label>Nome
-        <input id="staffName" required maxlength="90" placeholder="Nome do funcionário">
-      </label>
-      <label>E-mail de acesso
-        <input id="staffEmail" type="email" required placeholder="funcionario@email.com">
-      </label>
-      <label>WhatsApp
-        <input id="staffWhatsapp" inputmode="tel" placeholder="(87) 99999-9999">
-      </label>
-      <label>Função
-        <select id="staffRole">
-          <option value="editor">Funcionário</option>
-          <option value="manager">Gerente</option>
-          <option value="owner">Proprietário</option>
-        </select>
-      </label>
+      <label>Nome do funcionário<input id="staffName" required maxlength="80" placeholder="Ex.: Maria da Silva"></label>
+      <label>E-mail de acesso<input id="staffEmail" type="email" required autocomplete="off" placeholder="funcionario@email.com"></label>
+      <label>Função<select id="staffRole"><option value="editor">Funcionário</option><option value="manager">Gerente</option><option value="owner">Proprietário</option></select></label>
     </div>
-
-    <label class="toggle-line staff-active-line">
-      <span><b>Acesso ativo</b><small>Desative para impedir o funcionário de usar a loja.</small></span>
-      <input id="staffActive" type="checkbox" checked>
-    </label>
-
+    <label class="toggle-line staff-active-line"><span><b>Acesso ativo</b><small>Desative para impedir o funcionário de usar a loja.</small></span><input id="staffActive" type="checkbox" checked></label>
     <section class="permissions-box">
-      <div class="permissions-head">
-        <div><b>Permissões</b><small>Você pode ajustar individualmente, mesmo depois de escolher a função.</small></div>
-        <button type="button" id="applyRolePermissions" class="dark">Usar padrão da função</button>
-      </div>
+      <div class="permissions-head"><div><b>Permissões</b><small>Você pode ajustar individualmente, mesmo depois de escolher a função.</small></div><button type="button" id="applyRolePermissions" class="dark">Usar padrão da função</button></div>
       <div id="staffPermissions" class="permissions-grid"></div>
     </section>
-
-    <div class="dialog-actions">
-      <button value="cancel">Cancelar</button>
-      <button value="default" id="saveStaffButton" class="green">Salvar funcionário</button>
-    </div>
+    <div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="saveStaffButton" class="green">Salvar funcionário</button></div>
   </form>
 </dialog>
 
 <dialog id="centralLoginDialog">
-  <form method="dialog" id="centralLoginForm">
-    <h2>Entrar no Tem Aqui Gestão</h2>
-    <p class="login-help">Use a mesma conta cadastrada no Tem Aqui.</p>
-    <label>E-mail<input id="centralEmail" type="email" required autocomplete="username"></label>
-    <label>Senha<input id="centralPassword" type="password" required autocomplete="current-password"></label>
-    <div class="dialog-actions">
-      <button value="cancel">Cancelar</button>
-      <button value="default" id="centralLoginSubmit" class="green">Entrar</button>
-    </div>
-  </form>
+  <form method="dialog" id="centralLoginForm"><h2>Entrar no Tem Aqui Gestão</h2><p class="login-help">Use a mesma conta cadastrada no Tem Aqui.</p><label>E-mail<input id="centralEmail" type="email" required autocomplete="username"></label><label>Senha<input id="centralPassword" type="password" required autocomplete="current-password"></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="centralLoginSubmit" class="green">Entrar</button></div></form>
 </dialog>
 
-<dialog id="categoryDialog">
-  <form method="dialog" id="categoryForm">
-    <h2 id="categoryDialogTitle">Nova categoria</h2>
-    <input type="hidden" id="categoryOriginalName">
-    <label>Nome da categoria<input id="categoryName" maxlength="60" required placeholder="Ex.: Carnes Bovinas"></label>
-    <div class="dialog-actions">
-      <button value="cancel">Cancelar</button>
-      <button value="default" id="saveCategoryButton" class="green">Salvar categoria</button>
-    </div>
-  </form>
-</dialog>
+<dialog id="categoryDialog"><form method="dialog" id="categoryForm"><h2 id="categoryDialogTitle">Nova categoria</h2><input type="hidden" id="categoryOriginalName"><label>Nome da categoria<input id="categoryName" maxlength="60" required placeholder="Ex.: Carnes Bovinas"></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="saveCategoryButton" class="green">Salvar categoria</button></div></form></dialog>
 
-<dialog id="promotionDialog" class="promotion-dialog">
-  <form method="dialog" id="promotionForm">
-    <h2>Configurar promoção</h2>
-    <input type="hidden" id="promotionId">
-    <div class="promotion-form-grid">
-      <label>Nome da promoção
-        <input id="promotionName" required maxlength="80" placeholder="Ex.: Oferta do fim de semana">
-      </label>
-      <label>Desconto (%)
-        <input id="promotionPercent" type="number" min="0.01" max="99.99" step="0.01" required value="10">
-      </label>
-      <label>Início
-        <input id="promotionStart" type="datetime-local" required>
-      </label>
-      <label>Término
-        <input id="promotionEnd" type="datetime-local" required>
-      </label>
-    </div>
-    <label class="toggle-line promotion-publish">
-      <span><b>Publicar no Tem Aqui</b><small>Marca a promoção para sincronização com o aplicativo público quando a integração estiver conectada.</small></span>
-      <input id="promotionPublish" type="checkbox">
-    </label>
-    <div class="promotion-product-toolbar">
-      <div>
-        <b>Produtos da promoção</b>
-        <small>Selecione um ou vários produtos.</small>
-      </div>
-      <select id="promotionCategoryFilter"><option value="">Todas as categorias</option></select>
-      <button type="button" id="selectVisiblePromotionProducts" class="dark">Selecionar visíveis</button>
-      <button type="button" id="clearPromotionProducts" class="light-button">Limpar</button>
-    </div>
-    <div id="promotionProductPicker" class="promotion-product-picker"></div>
-    <div class="promotion-preview" id="promotionPreview"></div>
-    <div class="dialog-actions">
-      <button value="cancel">Cancelar</button>
-      <button value="default" id="savePromotionButton" class="green">Salvar promoção</button>
-    </div>
-  </form>
-</dialog>
+<dialog id="promotionDialog" class="promotion-dialog"><form method="dialog" id="promotionForm"><h2>Configurar promoção</h2><input type="hidden" id="promotionId"><div class="promotion-form-grid"><label>Nome da promoção<input id="promotionName" required maxlength="80" placeholder="Ex.: Oferta do fim de semana"></label><label>Desconto (%)<input id="promotionPercent" type="number" min="0.01" max="99.99" step="0.01" required value="10"></label><label>Início<input id="promotionStart" type="datetime-local" required></label><label>Término<input id="promotionEnd" type="datetime-local" required></label></div><label class="toggle-line promotion-publish"><span><b>Publicar no Tem Aqui</b><small>Marca a promoção para sincronização com o aplicativo público quando a integração estiver conectada.</small></span><input id="promotionPublish" type="checkbox"></label><div class="promotion-product-toolbar"><div><b>Produtos da promoção</b><small>Selecione um ou vários produtos.</small></div><select id="promotionCategoryFilter"><option value="">Todas as categorias</option></select><button type="button" id="selectVisiblePromotionProducts" class="dark">Selecionar visíveis</button><button type="button" id="clearPromotionProducts" class="light-button">Limpar</button></div><div id="promotionProductPicker" class="promotion-product-picker"></div><div class="promotion-preview" id="promotionPreview"></div><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="savePromotionButton" class="green">Salvar promoção</button></div></form></dialog>
 
-<dialog id="quantityDialog">
-  <form method="dialog" id="quantityForm">
-    <h2 id="quantityProductName">Quantidade do produto</h2>
-    <p id="quantityProductInfo"></p>
-    <input type="hidden" id="quantityProductId">
-    <label>Quantidade
-      <div class="quantity-dialog-input">
-        <input id="quantityValue" inputmode="decimal" autocomplete="off" value="1" required>
-        <span id="quantityUnit">un.</span>
-      </div>
-    </label>
-    <div class="quantity-preview">
-      <span>Total deste item</span>
-      <strong id="quantityItemTotal">R$ 0,00</strong>
-    </div>
-    <small id="quantityStockHint"></small>
-    <div class="dialog-actions">
-      <button value="cancel">Cancelar</button>
-      <button value="default" id="confirmQuantityButton" class="green">Adicionar à venda</button>
-    </div>
-  </form>
-</dialog>
+<dialog id="quantityDialog"><form method="dialog" id="quantityForm"><h2 id="quantityProductName">Quantidade do produto</h2><p id="quantityProductInfo"></p><input type="hidden" id="quantityProductId"><label>Quantidade<div class="quantity-dialog-input"><input id="quantityValue" inputmode="decimal" autocomplete="off" value="1" required><span id="quantityUnit">un.</span></div></label><div class="quantity-preview"><span>Total deste item</span><strong id="quantityItemTotal">R$ 0,00</strong></div><small id="quantityStockHint"></small><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="confirmQuantityButton" class="green">Adicionar à venda</button></div></form></dialog>
 
 <dialog id="looseDialog"><form method="dialog" id="looseForm"><h2>Adicionar produto avulso</h2><label>Descrição<input id="looseName" required></label><label>Quantidade<input id="looseQty" type="number" min="0.001" step="0.001" value="1" required></label><label>Unidade<select id="looseUnit"><option value="un.">un.</option><option value="kg">kg</option><option value="g">g</option><option value="L">L</option></select></label><label>Valor unitário<input id="loosePrice" type="number" min="0" step="0.01" required></label><div class="dialog-actions"><button value="cancel">Cancelar</button><button value="default" id="saveLooseButton" class="green">Adicionar</button></div></form></dialog>
 
@@ -363,5 +257,6 @@
 <script src="supabase-config.js?v=0.9.3"></script>
 <script src="gestao-backend.js?v=0.9.3"></script>
 <script src="app.js?v=0.9.3"></script>
+<script src="checkout-customer-search.js?v=1.0.0"></script>
 </body>
 </html>

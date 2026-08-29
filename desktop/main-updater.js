@@ -43,6 +43,47 @@ async function injectUpdater(win) {
     `, true);
   } catch (_) {}
 }
+async function injectPdvKeyboardRecovery(win) {
+  try {
+    await win.webContents.executeJavaScript(`
+      (()=>{
+        if(window.__temAquiPdvRecoveryInstalled)return;
+        window.__temAquiPdvRecoveryInstalled=true;
+        const restore=()=>{
+          document.querySelectorAll('dialog[open]').forEach(d=>{ try{ d.close(); }catch(_){} });
+          document.querySelectorAll('[inert]').forEach(e=>e.removeAttribute('inert'));
+          document.body.style.pointerEvents='';
+          document.documentElement.style.pointerEvents='';
+          const checkout=document.getElementById('checkoutPanel');
+          if(checkout){ checkout.style.pointerEvents=''; checkout.removeAttribute('inert'); }
+          const fields=['productSearch','looseName','looseQty','loosePrice','cashReceivedInput'];
+          fields.forEach(id=>{const el=document.getElementById(id);if(el){el.disabled=false;el.readOnly=false;}});
+          const p=document.getElementById('productSearch');
+          if(p){ setTimeout(()=>{try{p.focus();p.select?.();}catch(_){}},80); }
+        };
+        const nativeAlert=window.alert.bind(window);
+        window.alert=(msg)=>{
+          const text=String(msg??'');
+          const out=nativeAlert(msg);
+          if(text.includes('Venda concluída')) setTimeout(restore,120);
+          return out;
+        };
+        document.addEventListener('click',e=>{
+          if(e.target?.closest?.('#confirmSaleButton')){
+            let tries=0;
+            const timer=setInterval(()=>{
+              tries++;
+              const count=Number(document.getElementById('cartCount')?.textContent||0);
+              if(count===0){clearInterval(timer);restore();}
+              if(tries>80)clearInterval(timer);
+            },150);
+          }
+        },true);
+        window.addEventListener('focus',()=>setTimeout(()=>{const a=document.activeElement;if(!a||a===document.body)restore();},100));
+      })();
+    `, true);
+  } catch (_) {}
+}
 async function setRendererStatus(win, text) {
   try { await win.webContents.executeJavaScript(`(()=>{const e=document.getElementById('desktopUpdaterText');if(e)e.textContent=${JSON.stringify(text)}})()`, true); } catch (_) {}
 }
@@ -90,6 +131,7 @@ async function check(win, interactive = true) {
 app.on('browser-window-created', (_event, win) => {
   win.webContents.on('did-finish-load', () => {
     setTimeout(() => injectUpdater(win), 1200);
+    setTimeout(() => injectPdvKeyboardRecovery(win), 1400);
     setTimeout(() => check(win, false), 7000);
   });
   win.webContents.on('did-navigate-in-page', (_e, url) => {

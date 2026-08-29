@@ -1,0 +1,8 @@
+(()=>{'use strict';
+function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+function install(){const select=document.getElementById('checkoutCustomer');if(!select)return;if(document.getElementById('checkoutCustomerSearch'))return;const label=select.closest('label');if(!label)return;const input=document.createElement('input');input.id='checkoutCustomerSearch';input.type='search';input.placeholder='Pesquisar cliente pelo nome...';input.autocomplete='off';input.style.cssText='display:block;width:100%;box-sizing:border-box;margin:7px 0 9px;padding:11px 12px;border:1px solid #cfd8e3;border-radius:10px;font:inherit;background:#fff;color:#172033;';label.insertBefore(input,select);
+const apply=()=>{const q=norm(input.value);[...select.options].forEach((o,i)=>{if(i===0){o.hidden=false;return}o.hidden=!!q&&!norm(o.textContent).includes(q)});if(q){const first=[...select.options].find((o,i)=>i>0&&!o.hidden);if(first&&(!select.value||select.selectedOptions[0]?.hidden)){select.value=first.value;select.dispatchEvent(new Event('change',{bubbles:true}))}}};
+input.addEventListener('input',apply);input.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.key==='Enter'){e.preventDefault();select.focus();if(e.key==='Enter'){const first=[...select.options].find((o,i)=>i>0&&!o.hidden);if(first){select.value=first.value;select.dispatchEvent(new Event('change',{bubbles:true}))}}}});
+const observer=new MutationObserver(()=>{if(input.value)apply()});observer.observe(select,{childList:true});
+}
+window.addEventListener('load',()=>{install();setInterval(install,1200)});})();

@@ -1,8 +1,16 @@
 (()=>{
   const $=s=>document.querySelector(s);
-  let usage=null;
-  const getStoreId=()=>localStorage.getItem('tag-pref-store')||window.GestaoBackend?.currentStoreId||window.GestaoBackend?.storeId||null;
-  const supa=()=>window.GestaoBackend?.client||window.supabaseClient||window.supabase;
+  let usage=null,planClient=null;
+  const getStoreId=()=>localStorage.getItem('tag-pref-store')||null;
+  const supa=()=>{
+    if(planClient?.rpc)return planClient;
+    const cfg=window.TEM_AQUI_SUPABASE||{};
+    if(window.supabase?.createClient&&cfg.url&&(cfg.publishableKey||cfg.anonKey)){
+      planClient=window.supabase.createClient(cfg.url,cfg.publishableKey||cfg.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      return planClient;
+    }
+    return null;
+  };
 
   async function loadUsage(){
     const storeId=getStoreId();
@@ -18,7 +26,6 @@
   }
 
   function upgrade(){
-    const url='https://github.com/lokojhow/tem-aqui-tupanatinga';
     const msg='Você atingiu o limite do Tem Sabor Básico. Para cadastrar mais produtos, faça upgrade para um plano Tem Aqui Parceiro/Negócios.';
     if(window.showToast)window.showToast(msg); else alert(msg);
     window.dispatchEvent(new CustomEvent('tem-aqui-upgrade-request',{detail:{source:'gestao',plan:usage?.plan_code||'sabor_basic'}}));
@@ -43,8 +50,7 @@
     if(!usage)return;
     const settings=$('[data-view="settings"]');
     if(settings){
-      let card=$('#managementPlanCard');
-      if(card)card.remove();
+      $('#managementPlanCard')?.remove();
       const head=settings.querySelector('.page-heading');
       if(head)head.insertAdjacentHTML('afterend',cardHtml()); else settings.insertAdjacentHTML('afterbegin',cardHtml());
       $('#managementUpgradeBtn')?.addEventListener('click',upgrade);
@@ -61,24 +67,13 @@
     const btn=e.target.closest?.('#newProductButton');
     if(btn){
       const u=usage||await loadUsage();
-      if(u && u.product_limit!=null && !u.can_add){
-        e.preventDefault();e.stopImmediatePropagation();upgrade();return false;
-      }
+      if(u&&u.product_limit!=null&&!u.can_add){e.preventDefault();e.stopImmediatePropagation();upgrade();return false;}
     }
   },true);
 
   const nativeAlert=window.alert?.bind(window);
-  if(nativeAlert){
-    window.alert=(msg)=>{
-      const t=String(msg??'');
-      if(t.includes('LIMIT_PRODUCTS_REACHED')){
-        nativeAlert(t.replace('LIMIT_PRODUCTS_REACHED:','').trim());
-        loadUsage();return;
-      }
-      return nativeAlert(msg);
-    };
-  }
+  if(nativeAlert){window.alert=(msg)=>{const t=String(msg??'');if(t.includes('LIMIT_PRODUCTS_REACHED')){nativeAlert(t.replace('LIMIT_PRODUCTS_REACHED:','').trim());loadUsage();return;}return nativeAlert(msg);};}
   window.addEventListener('tem-aqui-product-saved',loadUsage);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadUsage();});
-  setTimeout(loadUsage,1200);setInterval(loadUsage,30000);
+  setTimeout(loadUsage,1400);setInterval(loadUsage,30000);
 })();

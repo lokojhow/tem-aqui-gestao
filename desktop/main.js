@@ -71,6 +71,7 @@ async function ensureDesktopContext(win) {
           await loadLocalScript('desktopUniversalRuntime113','./universal-runtime.js?v=desktop-${DESKTOP_VERSION}');
           await loadLocalScript('desktopOrdersSync113','./orders-desktop-sync.js?v=desktop-${DESKTOP_VERSION}');
           await loadLocalScript('desktopDeliveryTracking113','./orders-delivery-tracking.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopOrdersLogistics113','./orders-logistics-enhancements.js?v=desktop-${DESKTOP_VERSION}');
           await loadLocalScript('desktopCashDashboard113','./cash-dashboard-v2.js?v=desktop-${DESKTOP_VERSION}');
           await loadLocalScript('desktopCashCloseStatus113','./cash-close-status-fix.js?v=desktop-${DESKTOP_VERSION}');
 

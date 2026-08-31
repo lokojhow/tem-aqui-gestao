@@ -3,6 +3,12 @@
   if (window.__GESTAO_LOGISTICS_ENHANCEMENTS__) return;
   window.__GESTAO_LOGISTICS_ENHANCEMENTS__ = true;
 
+  const ensurePlanLimits=()=>{
+    if(document.getElementById('temAquiPlanLimitsScript'))return;
+    const s=document.createElement('script');s.id='temAquiPlanLimitsScript';s.src='./plan-limits.js?v=sabor-basic-1';s.async=false;document.body.appendChild(s);
+  };
+  ensurePlanLimits();
+
   const cfg = () => window.TEM_AQUI_SUPABASE || {};
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   let client = null;
@@ -109,7 +115,6 @@
     const o = selectedOrder();
     const detail = document.querySelector('#ordersDetail .order-detail-wrap');
     if (!o || !detail) return;
-
     const grid = detail.querySelector('.order-info-grid');
     if (grid && o.delivery_type !== 'pickup') {
       let card = grid.querySelector('.order-address-alert');
@@ -118,10 +123,8 @@
       const html = `<span>📍 LOCAL DA ENTREGA — confira antes de aceitar</span><b>${esc(address)}</b>${o.delivery_address ? `<a target="_blank" rel="noopener" href="${mapsUrl(o.delivery_address)}">Abrir localização no mapa</a>` : ''}`;
       setHtmlIfChanged(card, html);
     }
-
     const whatsapp = detail.querySelector('[data-whatsapp]');
     if (whatsapp) { if (whatsapp.textContent !== '💬 Falar com cliente no WhatsApp') whatsapp.textContent = '💬 Falar com cliente no WhatsApp'; whatsapp.title = 'Abrir conversa com o cliente'; }
-
     if (o.delivery_type !== 'pickup' && ['ready_for_pickup','confirmed','preparing'].includes(o.status)) {
       let box = detail.querySelector('.gestao-online-drivers');
       if (!box) { box = document.createElement('div'); box.className = 'gestao-online-drivers'; const actions = detail.querySelector('.order-actions'); (actions?.parentElement || detail).insertBefore(box, actions || null); }
@@ -130,14 +133,9 @@
       const html = n > 0 ? `🛵 <b>${n} entregador${n === 1 ? '' : 'es'} online</b>${online.city ? ` em ${esc(online.city)}` : ''}<small>Há entregadores disponíveis para receber a corrida.</small>` : `⚠️ <b>Nenhum entregador online${online.city ? ` em ${esc(online.city)}` : ''}</b><small>A loja ainda pode fazer a entrega por conta própria.</small>`;
       setHtmlIfChanged(box, html);
     }
-
     if (o.delivery_type !== 'pickup' && o.status === 'ready_for_pickup') {
       let fulfill = detail.querySelector('.gestao-fulfillment-box');
-      if (!fulfill) {
-        fulfill = document.createElement('div'); fulfill.className = 'gestao-fulfillment-box';
-        const actions = detail.querySelector('.order-actions');
-        (actions?.parentElement || detail).insertBefore(fulfill, actions || null);
-      }
+      if (!fulfill) { fulfill = document.createElement('div'); fulfill.className = 'gestao-fulfillment-box'; const actions = detail.querySelector('.order-actions'); (actions?.parentElement || detail).insertBefore(fulfill, actions || null); }
       if (!fulfill.querySelector('.gestao-driver-requested')) {
         fulfill.innerHTML = `<span>COMO ESTE PEDIDO SERÁ ENTREGUE?</span><strong>Escolha a logística</strong><div class="gestao-fulfillment-actions"><button class="gestao-own-delivery" type="button" data-gestao-own-delivery="${o.id}">🚚 Entrega pela loja</button><button class="gestao-call-driver" type="button" data-gestao-call-driver="${o.id}">🛵 Chamar entregador</button></div><small class="gestao-fulfillment-note">Entrega pela loja marca o pedido como saiu para entrega. Chamar entregador envia a corrida ao Tem Aqui Entregas.</small>`;
         renderFulfillmentState(fulfill, o);
@@ -146,60 +144,25 @@
   }
 
   function normalizeWhatsApp(number) { let n = String(number || '').replace(/\D/g, ''); if (n.length === 10 || n.length === 11) n = '55' + n; return n; }
-
   async function ownDelivery(orderId, button) {
     if (actionBusy) return; actionBusy = true; if (button) button.disabled = true;
-    try {
-      const c = await getClient();
-      const { error } = await c.rpc('gestao_update_marketplace_order_status', { p_order_id: orderId, p_status: 'out_for_delivery', p_reason: null });
-      if (error) throw error;
-      alert('Entrega pela loja selecionada. O pedido foi marcado como saiu para entrega.');
-      await refresh();
-    } catch (e) { alert(e.message || 'Não foi possível iniciar a entrega pela loja.'); if (button) button.disabled = false; }
+    try { const c = await getClient(); const { error } = await c.rpc('gestao_update_marketplace_order_status', { p_order_id: orderId, p_status: 'out_for_delivery', p_reason: null }); if (error) throw error; alert('Entrega pela loja selecionada. O pedido foi marcado como saiu para entrega.'); await refresh(); }
+    catch (e) { alert(e.message || 'Não foi possível iniciar a entrega pela loja.'); if (button) button.disabled = false; }
     finally { actionBusy = false; }
   }
-
   async function callDriver(orderId, button) {
     if (actionBusy) return; actionBusy = true; if (button) { button.disabled = true; button.textContent = '🛵 Chamando...'; }
-    try {
-      const c = await getClient();
-      const { data, error } = await c.rpc('delivery_create_job_from_order', { p_order_id: orderId, p_driver_share_percent: 85 });
-      if (error) throw error;
-      const job = Array.isArray(data) ? data[0] : data;
-      alert(job?.job_id ? 'Corrida criada no Tem Aqui Entregas. Os entregadores disponíveis serão avisados.' : 'Solicitação de entregador enviada.');
-      await refresh();
-    } catch (e) { alert(e.message || 'Não foi possível chamar um entregador.'); if (button) { button.disabled = false; button.textContent = '🛵 Chamar entregador'; } }
+    try { const c = await getClient(); const { data, error } = await c.rpc('delivery_create_job_from_order', { p_order_id: orderId, p_driver_share_percent: 85 }); if (error) throw error; const job = Array.isArray(data) ? data[0] : data; alert(job?.job_id ? 'Corrida criada no Tem Aqui Entregas. Os entregadores disponíveis serão avisados.' : 'Solicitação de entregador enviada.'); await refresh(); }
+    catch (e) { alert(e.message || 'Não foi possível chamar um entregador.'); if (button) { button.disabled = false; button.textContent = '🛵 Chamar entregador'; } }
     finally { actionBusy = false; }
   }
-
   document.addEventListener('click', e => {
-    const own = e.target.closest?.('[data-gestao-own-delivery]');
-    if (own) { e.preventDefault(); e.stopImmediatePropagation(); ownDelivery(own.dataset.gestaoOwnDelivery, own); return; }
-    const driver = e.target.closest?.('[data-gestao-call-driver]');
-    if (driver) { e.preventDefault(); e.stopImmediatePropagation(); callDriver(driver.dataset.gestaoCallDriver, driver); return; }
-    const w = e.target.closest?.('#ordersDetail [data-whatsapp]');
-    if (!w) return;
-    e.preventDefault(); e.stopImmediatePropagation();
-    const n = normalizeWhatsApp(w.dataset.whatsapp);
-    if (!n) return alert('WhatsApp do cliente não informado.');
-    window.open(`https://wa.me/${n}?text=${encodeURIComponent('Olá! Estou entrando em contato sobre seu pedido no Tem Aqui.')}`, '_blank', 'noopener');
+    const own = e.target.closest?.('[data-gestao-own-delivery]'); if (own) { e.preventDefault(); e.stopImmediatePropagation(); ownDelivery(own.dataset.gestaoOwnDelivery, own); return; }
+    const driver = e.target.closest?.('[data-gestao-call-driver]'); if (driver) { e.preventDefault(); e.stopImmediatePropagation(); callDriver(driver.dataset.gestaoCallDriver, driver); return; }
+    const w = e.target.closest?.('#ordersDetail [data-whatsapp]'); if (!w) return;
+    e.preventDefault(); e.stopImmediatePropagation(); const n = normalizeWhatsApp(w.dataset.whatsapp); if (!n) return alert('WhatsApp do cliente não informado.'); window.open(`https://wa.me/${n}?text=${encodeURIComponent('Olá! Estou entrando em contato sobre seu pedido no Tem Aqui.')}`, '_blank', 'noopener');
   }, true);
-
-  async function refresh() {
-    if (refreshing) return;
-    refreshing = true;
-    try { style(); await loadData(); enhanceRows(); enhanceDetail(); }
-    catch (e) { console.warn('Logística Gestão:', e); }
-    finally { refreshing = false; }
-  }
-
-  function start() {
-    refresh(); clearInterval(timer);
-    timer = setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 5000);
-    document.addEventListener('click', e => { if (e.target.closest?.('[data-open-order],[data-set-status],[data-order-filter]')) setTimeout(() => { enhanceRows(); enhanceDetail(); }, 120); });
-    window.addEventListener('pageshow', refresh);
-    window.addEventListener('storage', e => { if (e.key === 'tag-pref-store') { store = null; refresh(); } });
-  }
-
+  async function refresh() { if (refreshing) return; refreshing = true; try { style(); await loadData(); enhanceRows(); enhanceDetail(); } catch (e) { console.warn('Logística Gestão:', e); } finally { refreshing = false; } }
+  function start() { ensurePlanLimits(); refresh(); clearInterval(timer); timer = setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 5000); document.addEventListener('click', e => { if (e.target.closest?.('[data-open-order],[data-set-status],[data-order-filter]')) setTimeout(() => { enhanceRows(); enhanceDetail(); }, 120); }); window.addEventListener('pageshow', refresh); window.addEventListener('storage', e => { if (e.key === 'tag-pref-store') { store = null; refresh(); } }); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();

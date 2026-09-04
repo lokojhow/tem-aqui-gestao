@@ -1,4 +1,4 @@
-const CACHE='tem-aqui-gestao-mobile-order-flow-v6';
+const CACHE='tem-aqui-gestao-mobile-order-flow-v7';
 const CORE=['./','./index.html','./styles.css','./responsive.css','./product-uniform.css','./header-cleanup.css','./barcode-scanner.css','./storefront-manager.css','./foldable.css','./pwa-install.css','./mobile-product-edit.css','./pos-enhancements.js','./barcode-scanner.js','./mobile-ui-fixes.js','./dialog-safety-fix.js','./storefront-manager.js','./foldable-layout.js','./pwa-install.js','./orders-module.js','./orders-detail-fix.js','./orders-permission-ui.js','./orders-deeplink.js','./orders-logistics-enhancements.js','./mobile-product-edit.js','./share-universal.js','./mobile-order-flow.js','./sound1.txt','./app.js','./manifest.json','./supabase-config.js','./gestao-backend.js','./logo-tem-aqui-gestao.png','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil((async()=>{
@@ -9,8 +9,8 @@ self.addEventListener('activate',e=>e.waitUntil((async()=>{
   for(const c of list){
     try{
       const u=new URL(c.url);
-      if(!u.searchParams.has('_swv6')){
-        u.searchParams.set('_swv6',String(Date.now()));
+      if(!u.searchParams.has('_swv7')){
+        u.searchParams.set('_swv7',String(Date.now()));
         if('navigate' in c) await c.navigate(u.href);
       }
     }catch(_){}

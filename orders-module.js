@@ -3,7 +3,7 @@
 
   const cfg = () => window.TEM_AQUI_SUPABASE || {};
   const money = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]));
   const fmt = v => v ? new Date(v).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
   const STATUS = {
     pending: ['Novo', 'Novo pedido'],
@@ -207,7 +207,7 @@
     if(!client())return;
     const ok=await resolveStore(); if(!ok)return;
     await loadOrders(false); subscribeRealtime(); enableNotifications(false).catch(()=>{});
-    clearInterval(state.timer); state.timer=setInterval(()=>{if(document.visibilityState!=='hidden')loadOrders(true);},12000);
+    clearInterval(state.timer); state.timer=setInterval(()=>{if(document.visibilityState!=='hidden')loadOrders(true);},120000);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadOrders(true);});
     window.addEventListener('storage',async e=>{if(e.key==='tag-pref-store'){state.initial=true;await resolveStore();await loadOrders(false);subscribeRealtime();}});
   }

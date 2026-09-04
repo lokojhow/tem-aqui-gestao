@@ -6,20 +6,20 @@
   window.__TAG_MOBILE_BOOTSTRAP__ = true;
 
   const modules = [
-    './mobile-session-rescue.js?v=1.0.17-order-detail',
-    './pos-enhancements.js?v=1.0.17-order-detail',
-    './barcode-scanner.js?v=1.0.17-order-detail',
-    './mobile-ui-fixes.js?v=1.0.17-order-detail',
-    './dialog-safety-fix.js?v=1.0.17-order-detail',
-    './storefront-manager.js?v=1.0.17-order-detail',
-    './foldable-layout.js?v=1.0.17-order-detail',
-    './pwa-install.js?v=1.0.17-order-detail',
-    './orders-module.js?v=1.0.17-order-detail',
-    './orders-detail-fix.js?v=1.0.17-order-detail',
-    './orders-permission-ui.js?v=1.0.17-order-detail',
-    './orders-deeplink.js?v=1.0.17-order-detail',
-    './orders-delivery-tracking.js?v=1.0.17-order-detail',
-    './orders-logistics-enhancements.js?v=1.0.17-order-detail'
+    './mobile-session-rescue.js?v=1.0.18-egress',
+    './pos-enhancements.js?v=1.0.18-egress',
+    './barcode-scanner.js?v=1.0.18-egress',
+    './mobile-ui-fixes.js?v=1.0.18-egress',
+    './dialog-safety-fix.js?v=1.0.18-egress',
+    './storefront-manager.js?v=1.0.18-egress',
+    './foldable-layout.js?v=1.0.18-egress',
+    './pwa-install.js?v=1.0.18-egress',
+    './orders-module.js?v=1.0.18-egress',
+    './orders-detail-fix.js?v=1.0.18-egress',
+    './orders-permission-ui.js?v=1.0.18-egress',
+    './orders-deeplink.js?v=1.0.18-egress',
+    './orders-delivery-tracking.js?v=1.0.18-egress',
+    './orders-logistics-enhancements.js?v=1.0.18-egress'
   ];
 
   function load(src) {

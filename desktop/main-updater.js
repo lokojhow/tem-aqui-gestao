@@ -100,7 +100,6 @@ async function check(win, interactive = true) {
       return;
     }
     await setRendererStatus(win, `Nova versão ${rel.version} disponível.`);
-    if (!interactive) return;
     const ans = await dialog.showMessageBox(win, {
       type: 'info',
       buttons: ['Baixar e instalar', 'Agora não'],
@@ -108,7 +107,7 @@ async function check(win, interactive = true) {
       cancelId: 1,
       title: 'Atualização disponível',
       message: `Tem Aqui Gestão ${rel.version} está disponível.`,
-      detail: `Versão instalada: ${local}\nO programa baixará o instalador e abrirá a atualização automaticamente.`
+      detail: `Versão instalada: ${local}\nEsta atualização inclui correções de consumo do banco. Recomendamos instalar agora.`
     });
     if (ans.response !== 0) return;
     await setRendererStatus(win, `Baixando versão ${rel.version}...`);

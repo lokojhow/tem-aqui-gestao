@@ -5,7 +5,7 @@
 
   const ensurePlanLimits=()=>{
     if(document.getElementById('temAquiPlanLimitsScript'))return;
-    const s=document.createElement('script');s.id='temAquiPlanLimitsScript';s.src='./plan-limits.js?v=sabor-basic-1';s.async=false;document.body.appendChild(s);
+    const s=document.createElement('script');s.id='temAquiPlanLimitsScript';s.src='./plan-limits.js?v=sabor-basic-2';s.async=false;document.body.appendChild(s);
   };
   ensurePlanLimits();
 
@@ -163,6 +163,6 @@
     e.preventDefault(); e.stopImmediatePropagation(); const n = normalizeWhatsApp(w.dataset.whatsapp); if (!n) return alert('WhatsApp do cliente não informado.'); window.open(`https://wa.me/${n}?text=${encodeURIComponent('Olá! Estou entrando em contato sobre seu pedido no Tem Aqui.')}`, '_blank', 'noopener');
   }, true);
   async function refresh() { if (refreshing) return; refreshing = true; try { style(); await loadData(); enhanceRows(); enhanceDetail(); } catch (e) { console.warn('Logística Gestão:', e); } finally { refreshing = false; } }
-  function start() { ensurePlanLimits(); refresh(); clearInterval(timer); timer = setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 5000); document.addEventListener('click', e => { if (e.target.closest?.('[data-open-order],[data-set-status],[data-order-filter]')) setTimeout(() => { enhanceRows(); enhanceDetail(); }, 120); }); window.addEventListener('pageshow', refresh); window.addEventListener('storage', e => { if (e.key === 'tag-pref-store') { store = null; refresh(); } }); }
+  function start() { ensurePlanLimits(); refresh(); clearInterval(timer); timer = setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 60000); document.addEventListener('click', e => { if (e.target.closest?.('[data-open-order],[data-set-status],[data-order-filter]')) setTimeout(() => { enhanceRows(); enhanceDetail(); }, 120); }); window.addEventListener('pageshow', refresh); window.addEventListener('storage', e => { if (e.key === 'tag-pref-store') { store = null; refresh(); } }); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();

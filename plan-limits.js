@@ -75,5 +75,5 @@
   if(nativeAlert){window.alert=(msg)=>{const t=String(msg??'');if(t.includes('LIMIT_PRODUCTS_REACHED')){nativeAlert(t.replace('LIMIT_PRODUCTS_REACHED:','').trim());loadUsage();return;}return nativeAlert(msg);};}
   window.addEventListener('tem-aqui-product-saved',loadUsage);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadUsage();});
-  setTimeout(loadUsage,1400);setInterval(loadUsage,30000);
+  setTimeout(loadUsage,1400);setInterval(()=>{if(!document.hidden)loadUsage();},300000);
 })();

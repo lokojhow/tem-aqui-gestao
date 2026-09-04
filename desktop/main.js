@@ -3,11 +3,11 @@ const path = require('path');
 
 if (require('electron-squirrel-startup')) app.quit();
 
-const DESKTOP_VERSION = '1.0.16';
+const DESKTOP_VERSION = app.getVersion();
 const DESKTOP_APP_NAME = 'TemAquiGestao';
 const DESKTOP_USER_AGENT = `Tem-Aqui-Gestao/${DESKTOP_VERSION}`;
 const LOCAL_APP = path.join(__dirname, '..', 'index.html');
-const PARTITION = 'persist:tem-aqui-gestao-v116';
+const PARTITION = `persist:tem-aqui-gestao-v${DESKTOP_VERSION.replace(/\W+/g,'')}`;
 const SUPABASE_HOST = 'izbkcdimyfoxikpzefba.supabase.co';
 
 app.setName(DESKTOP_APP_NAME);
@@ -36,18 +36,18 @@ async function ensureDesktopContext(win) {
         try {
           document.documentElement.dataset.desktopApp='1'; window.__TEM_AQUI_DESKTOP__=true; window.__TEM_AQUI_DESKTOP_VERSION__='${DESKTOP_VERSION}';
           const loadLocalScript=(id,src)=>new Promise(resolve=>{if(document.getElementById(id))return resolve(true);const s=document.createElement('script');s.id=id;s.src=src;s.async=false;s.onload=()=>resolve(true);s.onerror=()=>resolve(false);document.body.appendChild(s);});
-          await loadLocalScript('desktopDialogFix116','./dialog-safety-fix.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopPosEnhancements116','./pos-enhancements.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopLooseSaleReset116','./loose-sale-reset-fix.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopStaffEditFix116','./staff-edit-fix.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopPosScanner116','./pos-hid-scanner.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopUniversalRuntime116','./universal-runtime.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopOrdersSync116','./orders-desktop-sync.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopOrdersItems116','./orders-item-details-fix.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopDeliveryTracking116','./orders-delivery-tracking.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopOrdersLogistics116','./orders-logistics-enhancements.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopCashDashboard116','./cash-dashboard-v2.js?v=desktop-${DESKTOP_VERSION}');
-          await loadLocalScript('desktopCashCloseStatus116','./cash-close-status-fix.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopDialogFix','./dialog-safety-fix.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopPosEnhancements','./pos-enhancements.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopLooseSaleReset','./loose-sale-reset-fix.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopStaffEditFix','./staff-edit-fix.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopPosScanner','./pos-hid-scanner.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopUniversalRuntime','./universal-runtime.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopOrdersSync','./orders-desktop-sync.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopOrdersItems','./orders-item-details-fix.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopDeliveryTracking','./orders-delivery-tracking.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopOrdersLogistics','./orders-logistics-enhancements.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopCashDashboard','./cash-dashboard-v2.js?v=desktop-${DESKTOP_VERSION}');
+          await loadLocalScript('desktopCashCloseStatus','./cash-close-status-fix.js?v=desktop-${DESKTOP_VERSION}');
         }catch(e){console.warn('Desktop connector:',e);}
       })();
     `, true);

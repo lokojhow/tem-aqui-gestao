@@ -1,6 +1,8 @@
 (()=>{
   const $=s=>document.querySelector(s);
-  let usage=null,planClient=null;
+  let usage=null,planClient=null,request=null,lastSuccess=0,lastAttempt=0,blockedUntil=0;
+  const SUCCESS_TTL=15*60*1000;
+  const MIN_GAP=60*1000;
   const getStoreId=()=>localStorage.getItem('tag-pref-store')||null;
   const supa=()=>{
     if(planClient?.rpc)return planClient;
@@ -12,17 +14,30 @@
     return null;
   };
 
-  async function loadUsage(){
-    const storeId=getStoreId();
-    if(!storeId)return null;
-    try{
-      const client=supa();
-      if(!client?.rpc)return null;
-      const {data,error}=await client.rpc('gestao_get_plan_usage',{p_store_id:storeId});
-      if(error)throw error;
-      usage=data; render();
-      return usage;
-    }catch(e){console.warn('Plano Gestão:',e);return null;}
+  async function loadUsage({force=false}={}){
+    const now=Date.now(),storeId=getStoreId();
+    if(!storeId||document.hidden)return usage;
+    if(request)return request;
+    if(!force&&usage&&now-lastSuccess<SUCCESS_TTL)return usage;
+    if(now<blockedUntil||(!force&&now-lastAttempt<MIN_GAP))return usage;
+    lastAttempt=now;
+    request=(async()=>{
+      try{
+        const client=supa();
+        if(!client?.rpc)return usage;
+        const {data,error}=await client.rpc('gestao_get_plan_usage',{p_store_id:storeId});
+        if(error)throw error;
+        usage=data;lastSuccess=Date.now();blockedUntil=0;render();
+        return usage;
+      }catch(e){
+        const status=Number(e?.status||e?.statusCode||e?.code||0);
+        if(status===402||status===429||String(e?.message||'').includes('402')) blockedUntil=Date.now()+60*60*1000;
+        else blockedUntil=Date.now()+5*60*1000;
+        console.warn('Plano Gestão:',e);
+        return usage;
+      }finally{request=null;}
+    })();
+    return request;
   }
 
   function upgrade(){
@@ -36,44 +51,22 @@
     const unlimited=usage.is_unlimited||usage.product_limit==null;
     const count=Number(usage.product_count||0),limit=Number(usage.product_limit||0);
     const pct=unlimited?0:Math.min(100,Math.round((count/Math.max(limit,1))*100));
-    return `<section id="managementPlanCard" style="margin:14px 0;padding:18px;border:1px solid #dbe5ee;border-radius:14px;background:#fff">
-      <div style="display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap">
-        <div><small style="font-weight:900;color:#0759f8">MEU PLANO</small><h3 style="margin:5px 0">${usage.plan_name||'Tem Aqui Gestão'}</h3>
-        <p style="margin:0;color:#667085">${unlimited?`${count} produtos cadastrados · Produtos ilimitados`:`${count} de ${limit} produtos utilizados`}</p></div>
-        ${unlimited?'':`<button id="managementUpgradeBtn" type="button" class="green" style="padding:10px 16px">Fazer upgrade</button>`}
-      </div>
-      ${unlimited?'':`<div style="height:9px;background:#edf2f7;border-radius:99px;margin-top:14px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#0759f8;border-radius:99px"></div></div><small style="display:block;margin-top:7px;color:#667085">${Math.max(limit-count,0)} produto(s) disponível(is) no plano atual.</small>`}
-    </section>`;
+    return `<section id="managementPlanCard" style="margin:14px 0;padding:18px;border:1px solid #dbe5ee;border-radius:14px;background:#fff"><div style="display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap"><div><small style="font-weight:900;color:#0759f8">MEU PLANO</small><h3 style="margin:5px 0">${usage.plan_name||'Tem Aqui Gestão'}</h3><p style="margin:0;color:#667085">${unlimited?`${count} produtos cadastrados · Produtos ilimitados`:`${count} de ${limit} produtos utilizados`}</p></div>${unlimited?'':`<button id="managementUpgradeBtn" type="button" class="green" style="padding:10px 16px">Fazer upgrade</button>`}</div>${unlimited?'':`<div style="height:9px;background:#edf2f7;border-radius:99px;margin-top:14px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#0759f8;border-radius:99px"></div></div><small style="display:block;margin-top:7px;color:#667085">${Math.max(limit-count,0)} produto(s) disponível(is) no plano atual.</small>`}</section>`;
   }
 
   function render(){
     if(!usage)return;
     const settings=$('[data-view="settings"]');
-    if(settings){
-      $('#managementPlanCard')?.remove();
-      const head=settings.querySelector('.page-heading');
-      if(head)head.insertAdjacentHTML('afterend',cardHtml()); else settings.insertAdjacentHTML('afterbegin',cardHtml());
-      $('#managementUpgradeBtn')?.addEventListener('click',upgrade);
-    }
+    if(settings){$('#managementPlanCard')?.remove();const head=settings.querySelector('.page-heading');if(head)head.insertAdjacentHTML('afterend',cardHtml());else settings.insertAdjacentHTML('afterbegin',cardHtml());$('#managementUpgradeBtn')?.addEventListener('click',upgrade);}
     const products=$('[data-view="products"] .page-heading');
-    if(products){
-      let badge=$('#productPlanUsage');
-      if(!badge){badge=document.createElement('div');badge.id='productPlanUsage';badge.style.cssText='font-size:12px;font-weight:800;color:#667085;margin-top:6px';products.querySelector('div')?.appendChild(badge);}
-      badge.textContent=usage.product_limit==null?`${usage.product_count||0} produtos · plano ilimitado`:`${usage.product_count||0} de ${usage.product_limit} produtos do plano`;
-    }
+    if(products){let badge=$('#productPlanUsage');if(!badge){badge=document.createElement('div');badge.id='productPlanUsage';badge.style.cssText='font-size:12px;font-weight:800;color:#667085;margin-top:6px';products.querySelector('div')?.appendChild(badge);}badge.textContent=usage.product_limit==null?`${usage.product_count||0} produtos · plano ilimitado`:`${usage.product_count||0} de ${usage.product_limit} produtos do plano`;}
   }
 
-  document.addEventListener('click',async e=>{
-    const btn=e.target.closest?.('#newProductButton');
-    if(btn){
-      const u=usage||await loadUsage();
-      if(u&&u.product_limit!=null&&!u.can_add){e.preventDefault();e.stopImmediatePropagation();upgrade();return false;}
-    }
-  },true);
-
+  document.addEventListener('click',async e=>{const btn=e.target.closest?.('#newProductButton');if(btn){const u=usage||await loadUsage({force:true});if(u&&u.product_limit!=null&&!u.can_add){e.preventDefault();e.stopImmediatePropagation();upgrade();return false;}}},true);
   const nativeAlert=window.alert?.bind(window);
-  if(nativeAlert){window.alert=(msg)=>{const t=String(msg??'');if(t.includes('LIMIT_PRODUCTS_REACHED')){nativeAlert(t.replace('LIMIT_PRODUCTS_REACHED:','').trim());loadUsage();return;}return nativeAlert(msg);};}
-  window.addEventListener('tem-aqui-product-saved',loadUsage);
+  if(nativeAlert){window.alert=(msg)=>{const t=String(msg??'');if(t.includes('LIMIT_PRODUCTS_REACHED')){nativeAlert(t.replace('LIMIT_PRODUCTS_REACHED:','').trim());loadUsage({force:true});return;}return nativeAlert(msg);};}
+  window.addEventListener('tem-aqui-product-saved',()=>loadUsage({force:true}));
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadUsage();});
-  setTimeout(loadUsage,1400);setInterval(()=>{if(!document.hidden)loadUsage();},300000);
+  setTimeout(()=>loadUsage(),2500);
+  setInterval(()=>loadUsage(),30*60*1000);
 })();

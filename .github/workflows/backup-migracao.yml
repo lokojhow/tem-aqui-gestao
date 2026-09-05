@@ -1,0 +1,30 @@
+name: Backup de migracao
+
+on:
+  push:
+    branches:
+      - backup-migracao-20260905
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gerar ZIP do projeto
+        run: |
+          mkdir -p /tmp/backup
+          zip -r /tmp/backup/tem-aqui-gestao-completo.zip . -x '.git/*'
+      - name: Publicar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: tem-aqui-gestao-completo
+          path: /tmp/backup/tem-aqui-gestao-completo.zip
+          if-no-files-found: error
+          retention-days: 7

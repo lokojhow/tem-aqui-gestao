@@ -15,7 +15,8 @@
     delivered: ['Concluído', 'Pedido entregue'],
     cancelled: ['Cancelado', 'Pedido cancelado']
   };
-  const state = { client: null, store: null, orders: [], selected: null, items: [], initial: true, timer: null, channel: null, lastIds: new Set() };
+  const LOAD_DEDUPE_MS = 8000;
+  const state = { client: null, store: null, orders: [], selected: null, items: [], initial: true, timer: null, channel: null, lastIds: new Set(), loadPromise: null, lastLoadAt: 0 };
 
   function client() {
     if (state.client) return state.client;
@@ -139,7 +140,7 @@
     const {error}=await c.rpc('gestao_update_marketplace_order_status',{p_order_id:o.id,p_status:status,p_reason:reason});
     if(error){alert(error.message||'Não foi possível atualizar o pedido.');return;}
     try{await c.functions.invoke('send-order-status-push',{body:{order_id:o.id,status}});}catch(e){console.warn('status push',e);}
-    await loadOrders(false); await openOrder(o.id);
+    await loadOrders(false,true); await openOrder(o.id);
   }
 
   function handleClick(e){
@@ -158,17 +159,22 @@
     try{new Notification('Novo pedido recebido',{body:`${order.customer_name||'Cliente'} · ${money(order.total)}`,tag:`gestao-order-${order.id}`,icon:'./icon-192.png'});}catch(_){}
   }
 
-  async function loadOrders(notify=true){
+  async function loadOrders(notify=true,force=false){
     const c=client(); if(!c||!state.store)return;
-    const {data,error}=await c.rpc('gestao_list_marketplace_orders',{p_store_id:state.store.id,p_limit:300});
-    if(error){ if(/ORDER_ACCESS_DENIED/i.test(error.message||'')){document.getElementById('marketplaceOrdersRoute')?.setAttribute('hidden','');} console.warn(error); return; }
-    const rows=data||[];
-    if(notify && !state.initial){
-      const fresh=rows.filter(o=>o.status==='pending'&&!state.lastIds.has(o.id));
-      if(fresh.length){ playOfficialSound(); showLocalNotification(fresh[0]); }
-    }
-    state.orders=rows; state.lastIds=new Set(rows.map(o=>o.id)); state.initial=false;
-    render();
+    if(state.loadPromise)return state.loadPromise;
+    if(!force && Date.now()-state.lastLoadAt<LOAD_DEDUPE_MS)return;
+    state.loadPromise=(async()=>{
+      const {data,error}=await c.rpc('gestao_list_marketplace_orders',{p_store_id:state.store.id,p_limit:300});
+      if(error){ if(/ORDER_ACCESS_DENIED/i.test(error.message||'')){document.getElementById('marketplaceOrdersRoute')?.setAttribute('hidden','');} console.warn(error); return; }
+      const rows=data||[];
+      if(notify && !state.initial){
+        const fresh=rows.filter(o=>o.status==='pending'&&!state.lastIds.has(o.id));
+        if(fresh.length){ playOfficialSound(); showLocalNotification(fresh[0]); }
+      }
+      state.orders=rows; state.lastIds=new Set(rows.map(o=>o.id)); state.initial=false; state.lastLoadAt=Date.now();
+      render();
+    })().finally(()=>{state.loadPromise=null;});
+    return state.loadPromise;
   }
 
   function b64ToU8(value){const pad='='.repeat((4-value.length%4)%4),b=(value+pad).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(b);return Uint8Array.from(raw,c=>c.charCodeAt(0));}
@@ -199,17 +205,17 @@
   function subscribeRealtime(){
     const c=client(); if(!c||!state.store)return;
     try{state.channel?.unsubscribe?.();}catch(_){}
-    state.channel=c.channel(`gestao-orders-${state.store.id}`).on('postgres_changes',{event:'*',schema:'public',table:'orders',filter:`store_id=eq.${state.store.id}`},()=>loadOrders(true)).subscribe();
+    state.channel=c.channel(`gestao-orders-${state.store.id}`).on('postgres_changes',{event:'*',schema:'public',table:'orders',filter:`store_id=eq.${state.store.id}`},()=>loadOrders(true,false)).subscribe();
   }
 
   async function start(){
     injectUI();
     if(!client())return;
     const ok=await resolveStore(); if(!ok)return;
-    await loadOrders(false); subscribeRealtime(); enableNotifications(false).catch(()=>{});
-    clearInterval(state.timer); state.timer=setInterval(()=>{if(document.visibilityState!=='hidden')loadOrders(true);},120000);
-    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadOrders(true);});
-    window.addEventListener('storage',async e=>{if(e.key==='tag-pref-store'){state.initial=true;await resolveStore();await loadOrders(false);subscribeRealtime();}});
+    await loadOrders(false,true); subscribeRealtime(); enableNotifications(false).catch(()=>{});
+    clearInterval(state.timer); state.timer=setInterval(()=>{if(document.visibilityState!=='hidden')loadOrders(true,false);},120000);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadOrders(true,false);});
+    window.addEventListener('storage',async e=>{if(e.key==='tag-pref-store'){state.initial=true;state.lastLoadAt=0;await resolveStore();await loadOrders(false,true);subscribeRealtime();}});
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(start,500),{once:true});else setTimeout(start,500);

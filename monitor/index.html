@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tem Aqui Monitor</title>
+<style>
+:root{font-family:Inter,system-ui,sans-serif;color-scheme:dark;--bg:#07111f;--panel:#0d1b2d;--muted:#8ca0b8;--line:#1c2d44;--ok:#38d996;--warn:#ffbf4d;--bad:#ff6b6b;--blue:#4da3ff}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#07111f,#0a1422);color:#fff}.wrap{max-width:1280px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:24px}.brand h1{margin:0;font-size:28px}.brand p{margin:6px 0 0;color:var(--muted)}.badge{border:1px solid var(--line);padding:8px 12px;border-radius:999px;color:#b9c8d8}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}.kpi,.card{background:rgba(13,27,45,.92);border:1px solid var(--line);border-radius:18px}.kpi{padding:18px}.kpi small{color:var(--muted)}.kpi strong{display:block;font-size:26px;margin-top:7px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.card{padding:18px}.head{display:flex;align-items:center;justify-content:space-between;gap:14px}.name{font-weight:800;font-size:18px}.repo{font-size:12px;color:var(--muted);margin-top:4px}.status{font-size:12px;font-weight:800;padding:7px 10px;border-radius:999px}.ok{color:var(--ok);background:#12372d}.warn{color:var(--warn);background:#392d15}.bad{color:var(--bad);background:#3a1d25}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}.metric{padding:12px;background:#091523;border:1px solid var(--line);border-radius:13px}.metric span{display:block;font-size:11px;color:var(--muted)}.metric b{display:block;margin-top:6px;font-size:16px}.bar{height:8px;background:#101f31;border-radius:99px;overflow:hidden;margin-top:10px}.fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--ok));width:0}.foot{display:flex;justify-content:space-between;gap:12px;margin-top:16px;color:var(--muted);font-size:12px}.alert{margin-top:12px;padding:10px 12px;border-radius:12px;background:#151e2a;border:1px solid var(--line);font-size:13px}.empty{color:var(--muted)}@media(max-width:850px){.summary,.grid{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}@media(max-width:560px){.summary,.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="brand"><h1>Tem Aqui Monitor</h1><p>Central de consumo Supabase + GitHub por aplicativo</p></div><div class="badge" id="updated">Atualizando…</div></div>
+  <section class="summary">
+    <div class="kpi"><small>Aplicativos</small><strong id="appsCount">0</strong></div>
+    <div class="kpi"><small>Supabase ativos</small><strong id="sbCount">0</strong></div>
+    <div class="kpi"><small>Alertas abertos</small><strong id="alertsCount">0</strong></div>
+    <div class="kpi"><small>Status geral</small><strong id="overall">—</strong></div>
+  </section>
+  <main id="grid" class="grid"></main>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>

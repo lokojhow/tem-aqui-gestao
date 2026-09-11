@@ -7,15 +7,16 @@ const DESKTOP_VERSION = app.getVersion();
 const DESKTOP_APP_NAME = 'TemAquiGestao';
 const DESKTOP_USER_AGENT = `Tem-Aqui-Gestao/${DESKTOP_VERSION}`;
 const LOCAL_APP = path.join(__dirname, '..', 'index.html');
-const PARTITION = `persist:tem-aqui-gestao-v${DESKTOP_VERSION.replace(/\W+/g,'')}`;
+// Partição fixa: IndexedDB/localStorage sobrevivem às atualizações do programa.
+const PARTITION = 'persist:tem-aqui-gestao';
 const SUPABASE_HOST = 'izbkcdimyfoxikpzefba.supabase.co';
 
 app.setName(DESKTOP_APP_NAME);
 app.userAgentFallback = DESKTOP_USER_AGENT;
 
 async function prepareSession(ses) {
+  // Não limpar storage persistente. O banco local é a fonte principal do Desktop.
   try { await ses.clearCache(); } catch (_) {}
-  try { await ses.clearStorageData({ storages: ['serviceworkers', 'cachestorage'] }); } catch (_) {}
   try { ses.setUserAgent(DESKTOP_USER_AGENT); } catch (_) {}
 }
 
